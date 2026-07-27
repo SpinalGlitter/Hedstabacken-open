@@ -14,6 +14,8 @@ Familjeapp för tippning av Premier League med 1, X och 2.
 - Andras tips visas först när matchen är låst.
 - Den inloggade användaren kan bara ändra sin egen rad.
 - Totalställning räknas från färdigspelade matcher.
+- Varje färdigspelad omgång ger två bonuspoäng och en omgångsvinst till den eller de deltagare som har flest rätt.
+- Fliken Omgångsvinnare visar totalpoäng, flest omgångsvinster och vinnare per färdigspelad omgång.
 - Databasschema för användare, säsonger, matcher, tips och manuella korrigeringar.
 - Hela Premier League-säsongen 2026/27 hämtas från `football-data.org` och sparas i D1.
 

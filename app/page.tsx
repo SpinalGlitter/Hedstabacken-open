@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { calculateCompetition, type ScoringPredictionBook } from "@/lib/scoring";
 
 type Prediction = "1" | "X" | "2";
 type MatchStatus = "SCHEDULED" | "IN_PLAY" | "FINISHED" | "POSTPONED";
@@ -29,8 +30,6 @@ type FamilyMember = {
   pin: string;
   role: "admin" | "player";
 };
-
-type PredictionBook = Record<string, Record<number, Prediction | undefined>>;
 
 const familyMembers: FamilyMember[] = [
   { id: "johan", name: "Johan", pin: "1979", role: "admin" },
@@ -80,8 +79,9 @@ export default function Home() {
   const [seasonLabel, setSeasonLabel] = useState("2026/27");
   const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
   const [selectedMatchday, setSelectedMatchday] = useState(1);
-  const [predictions, setPredictions] = useState<PredictionBook>({});
+  const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
   const [saveState, setSaveState] = useState("Logga in för att lägga dina tips.");
+  const [activeView, setActiveView] = useState<"predictions" | "round-winners">("predictions");
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
 
@@ -140,20 +140,18 @@ export default function Home() {
     [fixtures, selectedMatchday],
   );
 
-  const standings = useMemo(() => {
-    return familyMembers
-      .map((member) => {
-        const points = fixtures.reduce((total, fixture) => {
-          const pick = predictions[member.id]?.[fixture.id];
-          return total + (fixture.status === "FINISHED" && pick === fixture.result ? 1 : 0);
-        }, 0);
+  const competition = useMemo(
+    () => calculateCompetition(familyMembers, fixtures, predictions),
+    [fixtures, predictions],
+  );
 
-        const submitted = fixtures.filter((fixture) => predictions[member.id]?.[fixture.id]).length;
-
-        return { ...member, points, submitted };
-      })
-      .sort((a, b) => b.points - a.points || b.submitted - a.submitted || a.name.localeCompare(b.name));
-  }, [fixtures, predictions]);
+  const roundWinStandings = useMemo(
+    () =>
+      [...competition.standings].sort(
+        (a, b) => b.roundWins - a.roundWins || b.total - a.total || b.correct - a.correct || a.name.localeCompare(b.name),
+      ),
+    [competition.standings],
+  );
 
   function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -320,7 +318,28 @@ export default function Home() {
       </section>
 
       <section className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
-        <div className="space-y-5">
+        <div className="lg:col-span-2">
+          <div className="view-tabs" aria-label="Välj vy">
+            <button
+              aria-pressed={activeView === "predictions"}
+              className={`view-tab ${activeView === "predictions" ? "view-tab-active" : ""}`}
+              onClick={() => setActiveView("predictions")}
+              type="button"
+            >
+              Tippa matcher
+            </button>
+            <button
+              aria-pressed={activeView === "round-winners"}
+              className={`view-tab ${activeView === "round-winners" ? "view-tab-active" : ""}`}
+              onClick={() => setActiveView("round-winners")}
+              type="button"
+            >
+              Omgångsvinnare
+            </button>
+          </div>
+        </div>
+
+        <div className={activeView === "predictions" ? "space-y-5" : "hidden"}>
           <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Välj omgång">
             {matchdays.map((matchday) => (
               <button
@@ -435,24 +454,29 @@ export default function Home() {
           </section>
         </div>
 
-        <aside className="space-y-5">
+        <aside className={activeView === "predictions" ? "space-y-5" : "hidden"}>
           <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">
               <h2 className="text-lg font-bold">Totalställning</h2>
             </div>
             <ol className="divide-y divide-[#edf1e8]">
-              {standings.map((member, index) => (
-                <li className="flex items-center justify-between px-4 py-4" key={member.id}>
+              {competition.standings.map((member, index) => (
+                <li className="flex items-center justify-between px-4 py-4" key={member.memberId}>
                   <div className="flex items-center gap-3">
                     <span className="grid h-8 w-8 place-items-center rounded-md bg-[#e9f0e3] text-sm font-bold">
                       {index + 1}
                     </span>
                     <div>
                       <p className="font-bold">{member.name}</p>
-                      <p className="text-sm text-[#66736b]">{member.submitted} tips lagda</p>
+                      <p className="text-sm text-[#66736b]">
+                        {member.correct} rätt + {member.bonus} bonus
+                      </p>
+                      <p className="text-xs font-semibold text-[#52635a]">
+                        {member.roundWins} {member.roundWins === 1 ? "omgångsvinst" : "omgångsvinster"}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-2xl font-bold text-[#1d513d]">{member.points}</span>
+                  <span className="text-2xl font-bold text-[#1d513d]">{member.total}</span>
                 </li>
               ))}
             </ol>
@@ -486,6 +510,116 @@ export default function Home() {
             </div>
           </section>
         </aside>
+
+        <div className={activeView === "round-winners" ? "space-y-5 lg:col-span-2" : "hidden"}>
+          <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+            <div className="border-b border-[#e5eadf] px-4 py-3">
+              <h2 className="text-lg font-bold">Totalställning</h2>
+              <p className="mt-1 text-sm text-[#5b6b61]">Två bonuspoäng delas ut till varje omgångsvinnare.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
+                    <th className="px-4 py-3">Placering</th>
+                    <th className="px-4 py-3">Deltagare</th>
+                    <th className="px-4 py-3">Antal rätt</th>
+                    <th className="px-4 py-3">Bonuspoäng</th>
+                    <th className="px-4 py-3">Totalpoäng</th>
+                    <th className="px-4 py-3">Omgångsvinster</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {competition.standings.map((member, index) => (
+                    <tr className="border-t border-[#edf1e8]" key={member.memberId}>
+                      <td className="px-4 py-3 font-bold">{index + 1}</td>
+                      <td className="px-4 py-3 font-bold">{member.name}</td>
+                      <td className="px-4 py-3">{member.correct}</td>
+                      <td className="px-4 py-3">{member.bonus}</td>
+                      <td className="px-4 py-3 text-base font-bold text-[#1d513d]">{member.total}</td>
+                      <td className="px-4 py-3 font-semibold">{member.roundWins}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+              <div className="border-b border-[#e5eadf] px-4 py-3">
+                <h2 className="text-lg font-bold">Flest omgångsvinster</h2>
+              </div>
+              <ol className="divide-y divide-[#edf1e8]">
+                {roundWinStandings.map((member, index) => (
+                  <li className="flex items-center justify-between gap-4 px-4 py-4" key={member.memberId}>
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-8 w-8 place-items-center rounded-md bg-[#e9f0e3] text-sm font-bold">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="font-bold">{member.name}</p>
+                        <p className="text-sm text-[#66736b]">{member.total} totalpoäng</p>
+                      </div>
+                    </div>
+                    <span className="text-2xl font-bold text-[#1d513d]">{member.roundWins}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+              <div className="border-b border-[#e5eadf] px-4 py-3">
+                <h2 className="text-lg font-bold">Vinnare för varje spelad omgång</h2>
+              </div>
+              {competition.roundResults.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm font-medium text-[#5b6b61]">
+                  Inga omgångar är färdigspelade ännu.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
+                        <th className="px-4 py-3">Omgång</th>
+                        <th className="px-4 py-3">Vinnare</th>
+                        <th className="px-4 py-3">Antal rätt</th>
+                        <th className="px-4 py-3">Bonus</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {competition.roundResults.map((round) => {
+                        const winnerNames = round.winnerIds.map(
+                          (winnerId) => familyMembers.find((member) => member.id === winnerId)?.name ?? winnerId,
+                        );
+
+                        return (
+                          <tr className="border-t border-[#edf1e8]" key={round.matchday}>
+                            <td className="px-4 py-3 font-bold">{round.matchday}</td>
+                            <td className="px-4 py-3 font-semibold">
+                              {winnerNames.length > 0 ? winnerNames.join(", ") : "Ingen fullständig rad"}
+                              {round.shared ? (
+                                <span className="ml-2 inline-block rounded bg-[#eef2ea] px-2 py-1 text-xs font-bold text-[#43544a]">
+                                  Delad
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="px-4 py-3">{round.maxCorrect ?? "-"}</td>
+                            <td className="px-4 py-3">{winnerNames.length > 0 ? "+2 var" : "-"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+
+          <p className="rounded-md border border-[#d8e1d0] bg-white px-4 py-3 text-sm font-medium text-[#45564b]">
+            Bonus delas ut först när alla matcher i omgången är färdigspelade. Delad förstaplats ger två bonuspoäng och en omgångsvinst till samtliga vinnare.
+          </p>
+        </div>
       </section>
     </main>
   );

@@ -39,6 +39,9 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /Slumpa tomma/);
   assert.match(html, /Slumpa omgången/);
   assert.match(html, /Totalställning/);
+  assert.match(html, /Omgångsvinnare/);
+  assert.match(html, /Bonuspoäng/);
+  assert.match(html, /Flest omgångsvinster/);
   assert.doesNotMatch(html, /Det här är fortfarande demodata|Ej körd/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });
