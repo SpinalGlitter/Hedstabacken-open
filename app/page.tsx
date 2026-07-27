@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Prediction = "1" | "X" | "2";
 type MatchStatus = "SCHEDULED" | "IN_PLAY" | "FINISHED" | "POSTPONED";
@@ -14,6 +14,13 @@ type Fixture = {
   status: MatchStatus;
   result?: Prediction;
   score?: string;
+};
+
+type FixturesResponse = {
+  fixtures: Fixture[];
+  seasonLabel: string;
+  syncedAt: string | null;
+  warning?: string;
 };
 
 type FamilyMember = {
@@ -32,118 +39,14 @@ const familyMembers: FamilyMember[] = [
   { id: "max", name: "Max", pin: "8642", role: "player" },
 ];
 
-const roundOneMatches = [
-  ["Liverpool", "Bournemouth", "1", "2-0"],
-  ["Arsenal", "Everton", "X", "1-1"],
-  ["Chelsea", "Tottenham", "2", "0-1"],
-  ["Manchester City", "Brighton", "1", "3-1"],
-  ["Newcastle", "Aston Villa", "X", "2-2"],
-  ["Manchester United", "West Ham", "1", "2-1"],
-  ["Crystal Palace", "Fulham", "2", "0-2"],
-  ["Leeds", "Nottingham Forest", "1", "1-0"],
-  ["Wolves", "Brentford", "X", "0-0"],
-  ["Sunderland", "Burnley", "2", "1-2"],
-] as const;
-
-const roundTwoMatches = [
-  ["Bournemouth", "Arsenal"],
-  ["Everton", "Chelsea"],
-  ["Tottenham", "Manchester City"],
-  ["Brighton", "Newcastle"],
-  ["Aston Villa", "Manchester United"],
-  ["West Ham", "Crystal Palace"],
-  ["Fulham", "Leeds"],
-  ["Nottingham Forest", "Wolves"],
-  ["Brentford", "Sunderland"],
-  ["Burnley", "Liverpool"],
-] as const;
-
-const roundThreeMatches = [
-  ["Liverpool", "Arsenal"],
-  ["Chelsea", "Manchester City"],
-  ["Newcastle", "Manchester United"],
-  ["Tottenham", "Brighton"],
-  ["Aston Villa", "West Ham"],
-  ["Crystal Palace", "Leeds"],
-  ["Fulham", "Nottingham Forest"],
-  ["Wolves", "Sunderland"],
-  ["Brentford", "Burnley"],
-  ["Everton", "Bournemouth"],
-] as const;
-
-const fixtures: Fixture[] = [
-  ...roundOneMatches.map(([homeTeam, awayTeam, result, score], index) => ({
-    id: 100 + index + 1,
-    matchday: 1,
-    kickoff: `2026-08-${15 + Math.floor(index / 5)}T${index % 5 === 0 ? "11:30" : index % 5 < 4 ? "14:00" : "16:30"}:00Z`,
-    homeTeam,
-    awayTeam,
-    status: "FINISHED" as const,
-    result,
-    score,
-  })),
-  ...roundTwoMatches.map(([homeTeam, awayTeam], index) => ({
-    id: 200 + index + 1,
-    matchday: 2,
-    kickoff: `2026-08-${22 + Math.floor(index / 5)}T${index % 5 === 0 ? "11:30" : index % 5 < 4 ? "14:00" : "16:30"}:00Z`,
-    homeTeam,
-    awayTeam,
-    status: "SCHEDULED" as const,
-  })),
-  ...roundThreeMatches.map(([homeTeam, awayTeam], index) => ({
-    id: 300 + index + 1,
-    matchday: 3,
-    kickoff: `2026-08-${29 + Math.floor(index / 5)}T${index % 5 === 0 ? "11:30" : index % 5 < 4 ? "14:00" : "16:30"}:00Z`,
-    homeTeam,
-    awayTeam,
-    status: index === 7 ? ("POSTPONED" as const) : ("SCHEDULED" as const),
-  })),
-];
-
-const initialPredictions: PredictionBook = {
-  johan: {
-    101: "1",
-    102: "X",
-    103: "1",
-    104: "1",
-    105: "2",
-    201: "1",
-  },
-  anna: {
-    101: "2",
-    102: "X",
-    103: "2",
-    104: "1",
-    105: "X",
-    201: "X",
-    202: "1",
-  },
-  elsa: {
-    101: "1",
-    102: "1",
-    103: "2",
-    104: "1",
-    105: "X",
-  },
-  max: {
-    101: "1",
-    102: "X",
-    103: "2",
-    104: "2",
-    105: "X",
-    203: "2",
-  },
-};
-
 const predictionOptions: Prediction[] = ["1", "X", "2"];
-const now = new Date("2026-08-21T18:00:00Z");
 
 function randomPrediction(): Prediction {
   return predictionOptions[Math.floor(Math.random() * predictionOptions.length)];
 }
 
 function isLocked(fixture: Fixture) {
-  return fixture.status === "FINISHED" || fixture.status === "IN_PLAY" || new Date(fixture.kickoff) <= now;
+  return fixture.status === "FINISHED" || fixture.status === "IN_PLAY" || new Date(fixture.kickoff) <= new Date();
 }
 
 function formatKickoff(kickoff: string) {
@@ -173,17 +76,68 @@ export default function Home() {
   const [loginMemberId, setLoginMemberId] = useState(familyMembers[0].id);
   const [pin, setPin] = useState("");
   const [loginMessage, setLoginMessage] = useState("Logga in med namn och PIN-kod.");
-  const [selectedMatchday, setSelectedMatchday] = useState(2);
-  const [predictions, setPredictions] = useState<PredictionBook>(initialPredictions);
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [seasonLabel, setSeasonLabel] = useState("2026/27");
+  const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
+  const [selectedMatchday, setSelectedMatchday] = useState(1);
+  const [predictions, setPredictions] = useState<PredictionBook>({});
   const [saveState, setSaveState] = useState("Logga in för att lägga dina tips.");
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
 
-  const matchdays = useMemo(() => Array.from(new Set(fixtures.map((fixture) => fixture.matchday))), []);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFixtures() {
+      try {
+        const response = await fetch("/api/fixtures");
+        const data = (await response.json()) as FixturesResponse & { error?: string };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Matcherna kunde inte hämtas.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setFixtures(data.fixtures);
+        setSeasonLabel(data.seasonLabel);
+
+        const nextFixture = data.fixtures.find(
+          (fixture) => fixture.status !== "FINISHED" && new Date(fixture.kickoff) > new Date(),
+        );
+        setSelectedMatchday(nextFixture?.matchday ?? data.fixtures.at(-1)?.matchday ?? 1);
+
+        const syncTime = data.syncedAt
+          ? new Intl.DateTimeFormat("sv-SE", {
+              timeZone: "Europe/Stockholm",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date(data.syncedAt))
+          : null;
+        setSyncMessage(
+          data.warning ?? `${data.fixtures.length} matcher hämtade${syncTime ? `, synkat ${syncTime}` : ""}.`,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setSyncMessage(error instanceof Error ? error.message : "Matcherna kunde inte hämtas.");
+        }
+      }
+    }
+
+    void loadFixtures();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const matchdays = useMemo(() => Array.from(new Set(fixtures.map((fixture) => fixture.matchday))), [fixtures]);
 
   const roundFixtures = useMemo(
     () => fixtures.filter((fixture) => fixture.matchday === selectedMatchday),
-    [selectedMatchday],
+    [fixtures, selectedMatchday],
   );
 
   const standings = useMemo(() => {
@@ -199,7 +153,7 @@ export default function Home() {
         return { ...member, points, submitted };
       })
       .sort((a, b) => b.points - a.points || b.submitted - a.submitted || a.name.localeCompare(b.name));
-  }, [predictions]);
+  }, [fixtures, predictions]);
 
   function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -296,7 +250,7 @@ export default function Home() {
             <div className="grid grid-cols-3 gap-3 rounded-lg border border-[#ccd8c4] bg-white p-3 shadow-sm">
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Säsong</p>
-                <p className="mt-1 text-lg font-bold">2026/27</p>
+                <p className="mt-1 text-lg font-bold">{seasonLabel}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Matcher</p>
@@ -304,7 +258,7 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Import</p>
-                <p className="mt-1 text-lg font-bold">Ej körd</p>
+                <p className="mt-1 text-lg font-bold">{fixtures.length > 0 ? "API aktiv" : "Laddar"}</p>
               </div>
             </div>
           </div>
@@ -387,6 +341,10 @@ export default function Home() {
               <span>Resultat</span>
               <span>{currentMember ? `${currentMember.name}s tips` : "Ditt tips"}</span>
             </div>
+
+            {roundFixtures.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm font-medium text-[#5b6b61]">{syncMessage}</div>
+            ) : null}
 
             {roundFixtures.map((fixture) => {
               const locked = isLocked(fixture);
@@ -522,9 +480,9 @@ export default function Home() {
           <section className="rounded-lg border border-[#d9e0d5] bg-white p-4 shadow-sm">
             <h2 className="text-lg font-bold">API-status</h2>
             <div className="mt-4 space-y-3 text-sm text-[#4f6157]">
-              <p>Det här är fortfarande demodata. API-importen är förberedd men inte körd, eftersom appen behöver din football-data.org-nyckel.</p>
-              <p>När importen kopplas in hämtas alla 380 matcher, alltså 10 matcher per omgång över 38 omgångar.</p>
-              <p>Webbläsaren ska fortsätta läsa från databasen, inte direkt från API:t.</p>
+              <p>{syncMessage}</p>
+              <p>Spelschema och resultat hämtas från football-data.org och sparas i appens databas.</p>
+              <p>Appen kontrollerar efter uppdateringar ungefär var femtonde minut när någon öppnar den.</p>
             </div>
           </section>
         </aside>

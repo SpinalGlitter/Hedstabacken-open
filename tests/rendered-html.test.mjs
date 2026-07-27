@@ -35,10 +35,11 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /PIN/);
   assert.match(html, /10\/omg\./);
   assert.match(html, /Import/);
-  assert.match(html, /Ej körd/);
+  assert.match(html, /Laddar/);
   assert.match(html, /Slumpa tomma/);
   assert.match(html, /Slumpa omgången/);
   assert.match(html, /Totalställning/);
+  assert.doesNotMatch(html, /Det här är fortfarande demodata|Ej körd/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });
 

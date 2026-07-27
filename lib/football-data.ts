@@ -4,7 +4,17 @@ export type PredictionPick = "1" | "X" | "2";
 export type FootballDataMatch = {
   id: number;
   utcDate: string;
-  status: "SCHEDULED" | "LIVE" | "IN_PLAY" | "PAUSED" | "FINISHED" | "POSTPONED" | "SUSPENDED" | "CANCELLED";
+  status:
+    | "SCHEDULED"
+    | "TIMED"
+    | "LIVE"
+    | "IN_PLAY"
+    | "PAUSED"
+    | "FINISHED"
+    | "AWARDED"
+    | "POSTPONED"
+    | "SUSPENDED"
+    | "CANCELLED";
   matchday: number | null;
   homeTeam: {
     name: string;
@@ -24,6 +34,28 @@ export type FootballDataMatch = {
 export type FootballDataMatchesResponse = {
   matches: FootballDataMatch[];
 };
+
+export type StoredMatchStatus =
+  | "SCHEDULED"
+  | "LIVE"
+  | "IN_PLAY"
+  | "PAUSED"
+  | "FINISHED"
+  | "POSTPONED"
+  | "SUSPENDED"
+  | "CANCELLED";
+
+export function normalizeMatchStatus(status: FootballDataMatch["status"]): StoredMatchStatus {
+  if (status === "TIMED") {
+    return "SCHEDULED";
+  }
+
+  if (status === "AWARDED") {
+    return "FINISHED";
+  }
+
+  return status;
+}
 
 export function winnerToPick(winner: FootballDataWinner): PredictionPick | null {
   if (winner === "HOME_TEAM") {

@@ -15,12 +15,13 @@ Familjeapp för tippning av Premier League med 1, X och 2.
 - Den inloggade användaren kan bara ändra sin egen rad.
 - Totalställning räknas från färdigspelade matcher.
 - Databasschema för användare, säsonger, matcher, tips och manuella korrigeringar.
+- Hela Premier League-säsongen 2026/27 hämtas från `football-data.org` och sparas i D1.
 
-Startsidan använder fortfarande demodata. Den visar 10 matcher per omgång för att spegla Premier League-formatet, men alla 380 matcher hämtas först när `football-data.org`-importen körs med en riktig API-nyckel.
+Startsidan visar det riktiga spelschemat. När någon öppnar appen kontrolleras schema och resultat på nytt om den senaste synkningen är äldre än femton minuter.
 
 ## football-data.org
 
-Appen är förberedd för `football-data.org` som källa till Premier League-schema och resultat.
+Appen använder `football-data.org` som källa till Premier League-schema och resultat.
 
 Relevant endpoint:
 
@@ -37,7 +38,7 @@ API:ets `score.winner` mappas så här:
 - `DRAW` blir `X`
 - `AWAY_TEAM` blir `2`
 
-Gratisnivån har fördröjda resultat, så synken bör köras schemalagt och appen bör alltid läsa från den egna databasen.
+Gratisnivån har fördröjda resultat. Appen läser alltid från den egna databasen och gör högst en ny API-synkning per femton minuter.
 
 ## Miljövariabler
 
@@ -47,8 +48,7 @@ FOOTBALL_DATA_API_TOKEN=din_api_nyckel
 
 ## Nästa steg
 
-1. Koppla startsidans prototyp till D1-tabellerna.
-2. Lägg till serverrutter för att spara tips och läsa tabellen.
-3. Lägg till schemalagd resultatsynk mot `football-data.org`.
-4. Lägg till inloggning eller familjekodsbaserad registrering beroende på hur appen ska publiceras.
-5. Bygg adminvy för manuella korrigeringar.
+1. Spara användare och tips i D1-tabellerna.
+2. Flytta PIN-kontrollen till servern och låt admin återställa koder.
+3. Lägg till en schemalagd resultatsynk som komplement till synkningen vid besök.
+4. Bygg adminvy för manuella korrigeringar.
