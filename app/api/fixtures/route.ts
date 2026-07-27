@@ -8,11 +8,6 @@ const SEASON_START_YEAR = 2026;
 const SEASON_LABEL = "2026/27";
 const SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
-type RuntimeEnv = {
-  DB?: D1Database;
-  FOOTBALL_DATA_API_TOKEN?: string;
-};
-
 type FixtureRow = {
   football_data_id: number;
   matchday: number;
@@ -28,7 +23,7 @@ type FixtureRow = {
 
 async function getRuntimeEnv() {
   const { env } = await import("cloudflare:workers");
-  return env as unknown as RuntimeEnv;
+  return env;
 }
 
 async function getSeasonId(db: D1Database) {
