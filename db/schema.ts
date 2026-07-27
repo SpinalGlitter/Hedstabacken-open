@@ -6,11 +6,16 @@ export const familyMembers = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     displayName: text("display_name").notNull(),
+    loginName: text("login_name").notNull(),
     email: text("email").notNull(),
+    pinCode: text("pin_code").notNull(),
     role: text("role", { enum: ["admin", "player"] }).notNull().default("player"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [uniqueIndex("family_members_email_idx").on(table.email)],
+  (table) => [
+    uniqueIndex("family_members_email_idx").on(table.email),
+    uniqueIndex("family_members_login_name_idx").on(table.loginName),
+  ],
 );
 
 export const seasons = sqliteTable("seasons", {

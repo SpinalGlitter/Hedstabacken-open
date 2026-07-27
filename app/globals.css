@@ -27,6 +27,38 @@ button {
   font: inherit;
 }
 
+.login-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.field-label {
+  align-self: center;
+  color: #43544a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.field-input {
+  min-height: 40px;
+  width: 100%;
+  border: 1px solid #becbb5;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 12px;
+  color: #17231d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field-input:focus {
+  border-color: #1d513d;
+  outline: 2px solid #cfe4c9;
+  outline-offset: 1px;
+}
+
 .control-button,
 .primary-button {
   min-height: 40px;
@@ -127,4 +159,10 @@ button {
 .pick-pill-correct {
   background: #dcefd9;
   color: #1c6b3f;
+}
+
+@media (max-width: 760px) {
+  .login-panel {
+    grid-template-columns: 1fr;
+  }
 }

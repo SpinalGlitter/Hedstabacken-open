@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 type Prediction = "1" | "X" | "2";
 type MatchStatus = "SCHEDULED" | "IN_PLAY" | "FINISHED" | "POSTPONED";
@@ -19,96 +19,85 @@ type Fixture = {
 type FamilyMember = {
   id: string;
   name: string;
+  pin: string;
+  role: "admin" | "player";
 };
 
 type PredictionBook = Record<string, Record<number, Prediction | undefined>>;
 
 const familyMembers: FamilyMember[] = [
-  { id: "johan", name: "Johan" },
-  { id: "anna", name: "Anna" },
-  { id: "elsa", name: "Elsa" },
-  { id: "max", name: "Max" },
+  { id: "johan", name: "Johan", pin: "1979", role: "admin" },
+  { id: "anna", name: "Anna", pin: "2468", role: "player" },
+  { id: "elsa", name: "Elsa", pin: "1357", role: "player" },
+  { id: "max", name: "Max", pin: "8642", role: "player" },
 ];
 
+const roundOneMatches = [
+  ["Liverpool", "Bournemouth", "1", "2-0"],
+  ["Arsenal", "Everton", "X", "1-1"],
+  ["Chelsea", "Tottenham", "2", "0-1"],
+  ["Manchester City", "Brighton", "1", "3-1"],
+  ["Newcastle", "Aston Villa", "X", "2-2"],
+  ["Manchester United", "West Ham", "1", "2-1"],
+  ["Crystal Palace", "Fulham", "2", "0-2"],
+  ["Leeds", "Nottingham Forest", "1", "1-0"],
+  ["Wolves", "Brentford", "X", "0-0"],
+  ["Sunderland", "Burnley", "2", "1-2"],
+] as const;
+
+const roundTwoMatches = [
+  ["Bournemouth", "Arsenal"],
+  ["Everton", "Chelsea"],
+  ["Tottenham", "Manchester City"],
+  ["Brighton", "Newcastle"],
+  ["Aston Villa", "Manchester United"],
+  ["West Ham", "Crystal Palace"],
+  ["Fulham", "Leeds"],
+  ["Nottingham Forest", "Wolves"],
+  ["Brentford", "Sunderland"],
+  ["Burnley", "Liverpool"],
+] as const;
+
+const roundThreeMatches = [
+  ["Liverpool", "Arsenal"],
+  ["Chelsea", "Manchester City"],
+  ["Newcastle", "Manchester United"],
+  ["Tottenham", "Brighton"],
+  ["Aston Villa", "West Ham"],
+  ["Crystal Palace", "Leeds"],
+  ["Fulham", "Nottingham Forest"],
+  ["Wolves", "Sunderland"],
+  ["Brentford", "Burnley"],
+  ["Everton", "Bournemouth"],
+] as const;
+
 const fixtures: Fixture[] = [
-  {
-    id: 101,
+  ...roundOneMatches.map(([homeTeam, awayTeam, result, score], index) => ({
+    id: 100 + index + 1,
     matchday: 1,
-    kickoff: "2026-08-15T11:30:00Z",
-    homeTeam: "Liverpool",
-    awayTeam: "Bournemouth",
-    status: "FINISHED",
-    result: "1",
-    score: "2-0",
-  },
-  {
-    id: 102,
-    matchday: 1,
-    kickoff: "2026-08-15T14:00:00Z",
-    homeTeam: "Arsenal",
-    awayTeam: "Everton",
-    status: "FINISHED",
-    result: "X",
-    score: "1-1",
-  },
-  {
-    id: 103,
-    matchday: 1,
-    kickoff: "2026-08-16T15:30:00Z",
-    homeTeam: "Chelsea",
-    awayTeam: "Tottenham",
-    status: "FINISHED",
-    result: "2",
-    score: "0-1",
-  },
-  {
-    id: 201,
+    kickoff: `2026-08-${15 + Math.floor(index / 5)}T${index % 5 === 0 ? "11:30" : index % 5 < 4 ? "14:00" : "16:30"}:00Z`,
+    homeTeam,
+    awayTeam,
+    status: "FINISHED" as const,
+    result,
+    score,
+  })),
+  ...roundTwoMatches.map(([homeTeam, awayTeam], index) => ({
+    id: 200 + index + 1,
     matchday: 2,
-    kickoff: "2026-08-22T11:30:00Z",
-    homeTeam: "Manchester City",
-    awayTeam: "Brighton",
-    status: "SCHEDULED",
-  },
-  {
-    id: 202,
-    matchday: 2,
-    kickoff: "2026-08-22T14:00:00Z",
-    homeTeam: "Newcastle",
-    awayTeam: "Aston Villa",
-    status: "SCHEDULED",
-  },
-  {
-    id: 203,
-    matchday: 2,
-    kickoff: "2026-08-23T15:30:00Z",
-    homeTeam: "Manchester United",
-    awayTeam: "West Ham",
-    status: "SCHEDULED",
-  },
-  {
-    id: 301,
+    kickoff: `2026-08-${22 + Math.floor(index / 5)}T${index % 5 === 0 ? "11:30" : index % 5 < 4 ? "14:00" : "16:30"}:00Z`,
+    homeTeam,
+    awayTeam,
+    status: "SCHEDULED" as const,
+  })),
+  ...roundThreeMatches.map(([homeTeam, awayTeam], index) => ({
+    id: 300 + index + 1,
     matchday: 3,
-    kickoff: "2026-08-29T11:30:00Z",
-    homeTeam: "Crystal Palace",
-    awayTeam: "Fulham",
-    status: "SCHEDULED",
-  },
-  {
-    id: 302,
-    matchday: 3,
-    kickoff: "2026-08-29T14:00:00Z",
-    homeTeam: "Leeds",
-    awayTeam: "Nottingham Forest",
-    status: "POSTPONED",
-  },
-  {
-    id: 303,
-    matchday: 3,
-    kickoff: "2026-08-30T15:30:00Z",
-    homeTeam: "Wolves",
-    awayTeam: "Brentford",
-    status: "SCHEDULED",
-  },
+    kickoff: `2026-08-${29 + Math.floor(index / 5)}T${index % 5 === 0 ? "11:30" : index % 5 < 4 ? "14:00" : "16:30"}:00Z`,
+    homeTeam,
+    awayTeam,
+    status: index === 7 ? ("POSTPONED" as const) : ("SCHEDULED" as const),
+  })),
 ];
 
 const initialPredictions: PredictionBook = {
@@ -116,12 +105,16 @@ const initialPredictions: PredictionBook = {
     101: "1",
     102: "X",
     103: "1",
+    104: "1",
+    105: "2",
     201: "1",
   },
   anna: {
     101: "2",
     102: "X",
     103: "2",
+    104: "1",
+    105: "X",
     201: "X",
     202: "1",
   },
@@ -129,11 +122,15 @@ const initialPredictions: PredictionBook = {
     101: "1",
     102: "1",
     103: "2",
+    104: "1",
+    105: "X",
   },
   max: {
     101: "1",
     102: "X",
     103: "2",
+    104: "2",
+    105: "X",
     203: "2",
   },
 };
@@ -172,15 +169,17 @@ function statusLabel(status: MatchStatus) {
 }
 
 export default function Home() {
-  const [activeMember, setActiveMember] = useState(familyMembers[0].id);
+  const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
+  const [loginMemberId, setLoginMemberId] = useState(familyMembers[0].id);
+  const [pin, setPin] = useState("");
+  const [loginMessage, setLoginMessage] = useState("Logga in med namn och PIN-kod.");
   const [selectedMatchday, setSelectedMatchday] = useState(2);
   const [predictions, setPredictions] = useState<PredictionBook>(initialPredictions);
-  const [saveState, setSaveState] = useState("Alla ändringar sparas i prototypen.");
+  const [saveState, setSaveState] = useState("Logga in för att lägga dina tips.");
 
-  const matchdays = useMemo(
-    () => Array.from(new Set(fixtures.map((fixture) => fixture.matchday))),
-    [],
-  );
+  const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
+
+  const matchdays = useMemo(() => Array.from(new Set(fixtures.map((fixture) => fixture.matchday))), []);
 
   const roundFixtures = useMemo(
     () => fixtures.filter((fixture) => fixture.matchday === selectedMatchday),
@@ -202,7 +201,33 @@ export default function Home() {
       .sort((a, b) => b.points - a.points || b.submitted - a.submitted || a.name.localeCompare(b.name));
   }, [predictions]);
 
+  function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const member = familyMembers.find((candidate) => candidate.id === loginMemberId);
+
+    if (!member || member.pin !== pin.trim()) {
+      setLoginMessage("Fel PIN-kod. Be admin kontrollera eller byta koden.");
+      return;
+    }
+
+    setCurrentMemberId(member.id);
+    setPin("");
+    setLoginMessage(`Inloggad som ${member.name}.`);
+    setSaveState("Du kan bara ändra din egen rad.");
+  }
+
+  function logout() {
+    setCurrentMemberId(null);
+    setLoginMessage("Logga in med namn och PIN-kod.");
+    setSaveState("Logga in för att lägga dina tips.");
+  }
+
   function setPrediction(fixture: Fixture, prediction: Prediction) {
+    if (!currentMember) {
+      setSaveState("Logga in först.");
+      return;
+    }
+
     if (isLocked(fixture)) {
       setSaveState("Matchen är låst eftersom den har startat.");
       return;
@@ -210,17 +235,22 @@ export default function Home() {
 
     setPredictions((current) => ({
       ...current,
-      [activeMember]: {
-        ...current[activeMember],
+      [currentMember.id]: {
+        ...current[currentMember.id],
         [fixture.id]: prediction,
       },
     }));
-    setSaveState("Osparade ändringar i aktuell omgång.");
+    setSaveState(`Osparade ändringar för ${currentMember.name}.`);
   }
 
   function randomizeRound(onlyEmpty: boolean) {
+    if (!currentMember) {
+      setSaveState("Logga in först.");
+      return;
+    }
+
     setPredictions((current) => {
-      const memberPredictions = { ...current[activeMember] };
+      const memberPredictions = { ...current[currentMember.id] };
 
       for (const fixture of roundFixtures) {
         if (isLocked(fixture) || fixture.status === "POSTPONED") {
@@ -234,14 +264,19 @@ export default function Home() {
 
       return {
         ...current,
-        [activeMember]: memberPredictions,
+        [currentMember.id]: memberPredictions,
       };
     });
     setSaveState(onlyEmpty ? "Tomma matcher slumpades." : "Omgångens öppna matcher slumpades.");
   }
 
   function savePredictions() {
-    setSaveState("Tipsen är sparade och låses automatiskt vid avspark.");
+    if (!currentMember) {
+      setSaveState("Logga in först.");
+      return;
+    }
+
+    setSaveState(`Tipsen för ${currentMember.name} är sparade i prototypen.`);
   }
 
   return (
@@ -255,8 +290,7 @@ export default function Home() {
                 Familjens Premier League-tips
               </h1>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#4b5d51]">
-                Tippa varje match med 1, X eller 2, slumpa en hel omgång när känslan saknas och följ tabellen efter
-                resultaten synkas.
+                Logga in med ditt namn, tippa din egen rad och låt appen räkna tabellen när resultaten synkas.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 rounded-lg border border-[#ccd8c4] bg-white p-3 shadow-sm">
@@ -266,32 +300,53 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Matcher</p>
-                <p className="mt-1 text-lg font-bold">380</p>
+                <p className="mt-1 text-lg font-bold">10/omg.</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase text-[#66736b]">Källa</p>
-                <p className="mt-1 text-lg font-bold">API</p>
+                <p className="text-xs font-semibold uppercase text-[#66736b]">Import</p>
+                <p className="mt-1 text-lg font-bold">Ej körd</p>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2" aria-label="Välj familjemedlem">
-              {familyMembers.map((member) => (
-                <button
-                  className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
-                    activeMember === member.id
-                      ? "border-[#1d513d] bg-[#1d513d] text-white"
-                      : "border-[#c5d0bd] bg-white text-[#26362d] hover:border-[#1d513d]"
-                  }`}
-                  key={member.id}
-                  onClick={() => setActiveMember(member.id)}
-                  type="button"
-                >
-                  {member.name}
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <form className="login-panel" onSubmit={login}>
+              <label className="field-label" htmlFor="member">
+                Namn
+              </label>
+              <select
+                className="field-input"
+                id="member"
+                onChange={(event) => setLoginMemberId(event.target.value)}
+                value={loginMemberId}
+              >
+                {familyMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+              <label className="field-label" htmlFor="pin">
+                PIN
+              </label>
+              <input
+                className="field-input"
+                id="pin"
+                inputMode="numeric"
+                onChange={(event) => setPin(event.target.value)}
+                placeholder="Fyra siffror"
+                type="password"
+                value={pin}
+              />
+              <button className="primary-button" type="submit">
+                Logga in
+              </button>
+              {currentMember ? (
+                <button className="control-button" onClick={logout} type="button">
+                  Logga ut
                 </button>
-              ))}
-            </div>
+              ) : null}
+            </form>
 
             <div className="flex flex-wrap gap-2">
               <button className="control-button" onClick={() => randomizeRound(true)} type="button">
@@ -305,6 +360,8 @@ export default function Home() {
               </button>
             </div>
           </div>
+
+          <p className="text-sm font-semibold text-[#43544a]">{loginMessage}</p>
         </div>
       </section>
 
@@ -328,12 +385,12 @@ export default function Home() {
               <span className="hidden sm:block">Avspark</span>
               <span>Match</span>
               <span>Resultat</span>
-              <span>Ditt tips</span>
+              <span>{currentMember ? `${currentMember.name}s tips` : "Ditt tips"}</span>
             </div>
 
             {roundFixtures.map((fixture) => {
               const locked = isLocked(fixture);
-              const currentPrediction = predictions[activeMember]?.[fixture.id];
+              const currentPrediction = currentMember ? predictions[currentMember.id]?.[fixture.id] : undefined;
 
               return (
                 <article
@@ -359,7 +416,7 @@ export default function Home() {
                       <button
                         aria-pressed={currentPrediction === option}
                         className={`prediction-button ${currentPrediction === option ? "prediction-button-active" : ""}`}
-                        disabled={locked || fixture.status === "POSTPONED"}
+                        disabled={!currentMember || locked || fixture.status === "POSTPONED"}
                         key={option}
                         onClick={() => setPrediction(fixture, option)}
                         type="button"
@@ -402,11 +459,12 @@ export default function Home() {
                       {familyMembers.map((member) => {
                         const canReveal = isLocked(fixture);
                         const pick = predictions[member.id]?.[fixture.id];
+                        const isOwnPick = currentMember?.id === member.id;
 
                         return (
                           <td className="px-4 py-3" key={member.id}>
                             <span className={`pick-pill ${canReveal && pick === fixture.result ? "pick-pill-correct" : ""}`}>
-                              {canReveal ? pick ?? "-" : member.id === activeMember ? pick ?? "-" : "Dold"}
+                              {canReveal || isOwnPick ? pick ?? "-" : "Dold"}
                             </span>
                           </td>
                         );
@@ -442,18 +500,31 @@ export default function Home() {
             </ol>
           </section>
 
+          {currentMember?.role === "admin" ? (
+            <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+              <div className="border-b border-[#e5eadf] px-4 py-3">
+                <h2 className="text-lg font-bold">Admin</h2>
+              </div>
+              <div className="space-y-3 p-4 text-sm text-[#4f6157]">
+                <p>PIN-koder i prototypen:</p>
+                <div className="grid gap-2">
+                  {familyMembers.map((member) => (
+                    <div className="flex items-center justify-between rounded-md bg-[#f5f7f2] px-3 py-2" key={member.id}>
+                      <span className="font-semibold">{member.name}</span>
+                      <span className="font-mono font-bold">{member.pin}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           <section className="rounded-lg border border-[#d9e0d5] bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Synkflöde</h2>
+            <h2 className="text-lg font-bold">API-status</h2>
             <div className="mt-4 space-y-3 text-sm text-[#4f6157]">
-              <p>
-                Säsongens matcher hämtas från football-data.org och sparas i databasen med matchdag, avspark, lag,
-                status och resultat.
-              </p>
-              <p>
-                Ett schemalagt jobb kan uppdatera matcher oftare på matchdagar och översätta API:ets vinnare till 1,
-                X eller 2.
-              </p>
-              <p>Admin kan korrigera uppskjutna matcher eller resultat manuellt om datakällan skulle halka efter.</p>
+              <p>Det här är fortfarande demodata. API-importen är förberedd men inte körd, eftersom appen behöver din football-data.org-nyckel.</p>
+              <p>När importen kopplas in hämtas alla 380 matcher, alltså 10 matcher per omgång över 38 omgångar.</p>
+              <p>Webbläsaren ska fortsätta läsa från databasen, inte direkt från API:t.</p>
             </div>
           </section>
         </aside>

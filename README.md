@@ -5,13 +5,18 @@ Familjeapp för tippning av Premier League med 1, X och 2.
 ## Första versionen
 
 - Separata familjemedlemmar i gränssnittet.
+- Enkel inloggning med namn och PIN-kod.
+- Admin kan se prototypens PIN-koder och ska i den riktiga versionen kunna återställa dem.
 - Omgångsväljare för Premier League.
 - Tips per match med 1, X eller 2.
 - Slumpa endast tomma matcher eller slumpa hela öppna omgången.
 - Matcher låses vid avspark eller när de är färdigspelade.
 - Andras tips visas först när matchen är låst.
+- Den inloggade användaren kan bara ändra sin egen rad.
 - Totalställning räknas från färdigspelade matcher.
 - Databasschema för användare, säsonger, matcher, tips och manuella korrigeringar.
+
+Startsidan använder fortfarande demodata. Den visar 10 matcher per omgång för att spegla Premier League-formatet, men alla 380 matcher hämtas först när `football-data.org`-importen körs med en riktig API-nyckel.
 
 ## football-data.org
 

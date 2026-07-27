@@ -31,6 +31,11 @@ test("server-renders the betting app shell", async () => {
   const html = await response.text();
   assert.match(html, /<title>Hedstabacken Open<\/title>/i);
   assert.match(html, /Familjens Premier League-tips/);
+  assert.match(html, /Logga in/);
+  assert.match(html, /PIN/);
+  assert.match(html, /10\/omg\./);
+  assert.match(html, /Import/);
+  assert.match(html, /Ej körd/);
   assert.match(html, /Slumpa tomma/);
   assert.match(html, /Slumpa omgången/);
   assert.match(html, /Totalställning/);
