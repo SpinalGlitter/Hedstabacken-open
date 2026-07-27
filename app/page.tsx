@@ -151,6 +151,7 @@ function isLocked(fixture: Fixture) {
 
 function formatKickoff(kickoff: string) {
   return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
     weekday: "short",
     day: "numeric",
     month: "short",
