@@ -15,6 +15,13 @@
       "when": 1785165651178,
       "tag": "0001_ambitious_arachne",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785245893526,
+      "tag": "0002_glorious_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

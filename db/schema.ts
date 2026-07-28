@@ -18,6 +18,23 @@ export const familyMembers = sqliteTable(
   ],
 );
 
+export const memberSessions = sqliteTable(
+  "member_sessions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("member_sessions_token_hash_idx").on(table.tokenHash),
+    index("member_sessions_member_idx").on(table.memberId),
+  ],
+);
+
 export const seasons = sqliteTable("seasons", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   competitionCode: text("competition_code").notNull().default("PL"),

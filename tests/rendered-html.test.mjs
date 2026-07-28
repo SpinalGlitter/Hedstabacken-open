@@ -56,6 +56,7 @@ test("removes starter preview code and dependency", async () => {
 
   assert.deepEqual(previewFiles, []);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
+  assert.doesNotMatch(page, /1979|2468|1357|8642|PIN-koder i prototypen/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });

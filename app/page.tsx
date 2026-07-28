@@ -27,16 +27,15 @@ type FixturesResponse = {
 type FamilyMember = {
   id: string;
   name: string;
-  pin: string;
   role: "admin" | "player";
 };
 
-const familyMembers: FamilyMember[] = [
-  { id: "johan", name: "Johan", pin: "1979", role: "admin" },
-  { id: "anna", name: "Anna", pin: "2468", role: "player" },
-  { id: "elsa", name: "Elsa", pin: "1357", role: "player" },
-  { id: "max", name: "Max", pin: "8642", role: "player" },
-];
+type FamilyResponse = {
+  members: FamilyMember[];
+  currentMember: FamilyMember | null;
+  needsSetup: boolean;
+  error?: string;
+};
 
 const predictionOptions: Prediction[] = ["1", "X", "2"];
 
@@ -71,10 +70,19 @@ function statusLabel(status: MatchStatus) {
 }
 
 export default function Home() {
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
-  const [loginMemberId, setLoginMemberId] = useState(familyMembers[0].id);
+  const [loginMemberId, setLoginMemberId] = useState("");
   const [pin, setPin] = useState("");
-  const [loginMessage, setLoginMessage] = useState("Logga in med namn och PIN-kod.");
+  const [loginMessage, setLoginMessage] = useState("Laddar familjekonton...");
+  const [familyLoading, setFamilyLoading] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupName, setSetupName] = useState("");
+  const [setupPin, setSetupPin] = useState("");
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberPin, setNewMemberPin] = useState("");
+  const [resetPins, setResetPins] = useState<Record<string, string>>({});
+  const [adminMessage, setAdminMessage] = useState("Här kan du lägga till familjemedlemmar och byta deras PIN.");
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [seasonLabel, setSeasonLabel] = useState("2026/27");
   const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
@@ -84,6 +92,50 @@ export default function Home() {
   const [activeView, setActiveView] = useState<"predictions" | "round-winners">("predictions");
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFamily() {
+      try {
+        const response = await fetch("/api/family", { cache: "no-store" });
+        const data = (await response.json()) as FamilyResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Familjekontona kunde inte hämtas.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setFamilyMembers(data.members);
+        setCurrentMemberId(data.currentMember?.id ?? null);
+        setNeedsSetup(data.needsSetup);
+        setLoginMemberId(data.currentMember?.id ?? data.members[0]?.id ?? "");
+        setLoginMessage(
+          data.currentMember
+            ? `Inloggad som ${data.currentMember.name}.`
+            : data.needsSetup
+              ? "Skapa den första administratören."
+              : "Logga in med namn och PIN-kod.",
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setLoginMessage(error instanceof Error ? error.message : "Familjekontona kunde inte hämtas.");
+        }
+      } finally {
+        if (!cancelled) {
+          setFamilyLoading(false);
+        }
+      }
+    }
+
+    void loadFamily();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,7 +194,7 @@ export default function Home() {
 
   const competition = useMemo(
     () => calculateCompetition(familyMembers, fixtures, predictions),
-    [fixtures, predictions],
+    [familyMembers, fixtures, predictions],
   );
 
   const roundWinStandings = useMemo(
@@ -153,25 +205,121 @@ export default function Home() {
     [competition.standings],
   );
 
-  function login(event: FormEvent<HTMLFormElement>) {
+  async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const member = familyMembers.find((candidate) => candidate.id === loginMemberId);
+    setLoginMessage("Loggar in...");
 
-    if (!member || member.pin !== pin.trim()) {
-      setLoginMessage("Fel PIN-kod. Be admin kontrollera eller byta koden.");
-      return;
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: loginMemberId, pin }),
+      });
+      const data = (await response.json()) as { member?: FamilyMember; error?: string };
+
+      if (!response.ok || !data.member) {
+        throw new Error(data.error ?? "Inloggningen misslyckades.");
+      }
+
+      setCurrentMemberId(data.member.id);
+      setLoginMemberId(data.member.id);
+      setPin("");
+      setLoginMessage(`Inloggad som ${data.member.name}.`);
+      setSaveState("Du kan bara ändra din egen rad.");
+    } catch (error) {
+      setLoginMessage(
+        error instanceof Error ? `${error.message} Be admin byta koden om den är glömd.` : "Inloggningen misslyckades.",
+      );
     }
-
-    setCurrentMemberId(member.id);
-    setPin("");
-    setLoginMessage(`Inloggad som ${member.name}.`);
-    setSaveState("Du kan bara ändra din egen rad.");
   }
 
-  function logout() {
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setCurrentMemberId(null);
     setLoginMessage("Logga in med namn och PIN-kod.");
     setSaveState("Logga in för att lägga dina tips.");
+  }
+
+  async function createFirstAdmin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoginMessage("Skapar administratören...");
+
+    try {
+      const response = await fetch("/api/family/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: setupName, pin: setupPin }),
+      });
+      const data = (await response.json()) as { member?: FamilyMember; error?: string };
+
+      if (!response.ok || !data.member) {
+        throw new Error(data.error ?? "Administratören kunde inte skapas.");
+      }
+
+      setFamilyMembers([data.member]);
+      setCurrentMemberId(data.member.id);
+      setLoginMemberId(data.member.id);
+      setNeedsSetup(false);
+      setSetupName("");
+      setSetupPin("");
+      setLoginMessage(`Administratören ${data.member.name} är skapad och inloggad.`);
+      setSaveState("Du kan bara ändra din egen rad.");
+    } catch (error) {
+      setLoginMessage(error instanceof Error ? error.message : "Administratören kunde inte skapas.");
+    }
+  }
+
+  async function addMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAdminMessage("Lägger till användaren...");
+
+    try {
+      const response = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newMemberName, pin: newMemberPin }),
+      });
+      const data = (await response.json()) as { member?: FamilyMember; error?: string };
+
+      if (!response.ok || !data.member) {
+        throw new Error(data.error ?? "Användaren kunde inte skapas.");
+      }
+
+      setFamilyMembers((members) => [...members, data.member as FamilyMember]);
+      setNewMemberName("");
+      setNewMemberPin("");
+      setAdminMessage(`${data.member.name} är tillagd och kan nu logga in.`);
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : "Användaren kunde inte skapas.");
+    }
+  }
+
+  async function resetMemberPin(member: FamilyMember) {
+    setAdminMessage(`Byter PIN för ${member.name}...`);
+
+    try {
+      const response = await fetch(`/api/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: resetPins[member.id] ?? "" }),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "PIN-koden kunde inte bytas.");
+      }
+
+      setResetPins((current) => ({ ...current, [member.id]: "" }));
+      setAdminMessage(`PIN-koden för ${member.name} är bytt. Personen behöver logga in igen.`);
+
+      if (member.id === currentMemberId) {
+        setCurrentMemberId(null);
+        setLoginMemberId(member.id);
+        setLoginMessage("Din PIN är bytt. Logga in igen med den nya koden.");
+      }
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : "PIN-koden kunde inte bytas.");
+    }
   }
 
   function setPrediction(fixture: Fixture, prediction: Prediction) {
@@ -262,43 +410,92 @@ export default function Home() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <form className="login-panel" onSubmit={login}>
-              <label className="field-label" htmlFor="member">
-                Namn
-              </label>
-              <select
-                className="field-input"
-                id="member"
-                onChange={(event) => setLoginMemberId(event.target.value)}
-                value={loginMemberId}
-              >
-                {familyMembers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-              <label className="field-label" htmlFor="pin">
-                PIN
-              </label>
-              <input
-                className="field-input"
-                id="pin"
-                inputMode="numeric"
-                onChange={(event) => setPin(event.target.value)}
-                placeholder="Fyra siffror"
-                type="password"
-                value={pin}
-              />
-              <button className="primary-button" type="submit">
-                Logga in
-              </button>
-              {currentMember ? (
+            {familyLoading ? (
+              <div className="login-panel" aria-live="polite">
+                <span className="field-label">Logga in med namn och PIN</span>
+                <span className="text-sm font-semibold text-[#43544a]">Laddar familjekonton...</span>
+              </div>
+            ) : needsSetup ? (
+              <form className="login-panel" onSubmit={createFirstAdmin}>
+                <label className="field-label" htmlFor="setup-name">
+                  Administratörens namn
+                </label>
+                <input
+                  autoComplete="name"
+                  className="field-input"
+                  id="setup-name"
+                  maxLength={40}
+                  onChange={(event) => setSetupName(event.target.value)}
+                  placeholder="Namn"
+                  value={setupName}
+                />
+                <label className="field-label" htmlFor="setup-pin">
+                  PIN
+                </label>
+                <input
+                  autoComplete="new-password"
+                  className="field-input"
+                  id="setup-pin"
+                  inputMode="numeric"
+                  maxLength={8}
+                  onChange={(event) => setSetupPin(event.target.value.replace(/\D/g, ""))}
+                  pattern="[0-9]{4,8}"
+                  placeholder="4-8 siffror"
+                  type="password"
+                  value={setupPin}
+                />
+                <button className="primary-button" type="submit">
+                  Skapa administratör
+                </button>
+              </form>
+            ) : currentMember ? (
+              <div className="login-panel">
+                <span className="field-label">Inloggad användare</span>
+                <strong>{currentMember.name}</strong>
+                <span className="text-sm text-[#5b6b61]">
+                  {currentMember.role === "admin" ? "Administratör" : "Familjemedlem"}
+                </span>
                 <button className="control-button" onClick={logout} type="button">
                   Logga ut
                 </button>
-              ) : null}
-            </form>
+              </div>
+            ) : (
+              <form className="login-panel" onSubmit={login}>
+                <label className="field-label" htmlFor="member">
+                  Namn
+                </label>
+                <select
+                  className="field-input"
+                  id="member"
+                  onChange={(event) => setLoginMemberId(event.target.value)}
+                  value={loginMemberId}
+                >
+                  {familyMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+                <label className="field-label" htmlFor="pin">
+                  PIN
+                </label>
+                <input
+                  autoComplete="current-password"
+                  className="field-input"
+                  id="pin"
+                  inputMode="numeric"
+                  maxLength={8}
+                  onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
+                  pattern="[0-9]{4,8}"
+                  placeholder="4-8 siffror"
+                  type="password"
+                  value={pin}
+                />
+                <button className="primary-button" type="submit">
+                  Logga in
+                </button>
+              </form>
+            )}
 
             <div className="flex flex-wrap gap-2">
               <button className="control-button" onClick={() => randomizeRound(true)} type="button">
@@ -485,18 +682,87 @@ export default function Home() {
           {currentMember?.role === "admin" ? (
             <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
               <div className="border-b border-[#e5eadf] px-4 py-3">
-                <h2 className="text-lg font-bold">Admin</h2>
+                <h2 className="text-lg font-bold">Hantera användare</h2>
               </div>
-              <div className="space-y-3 p-4 text-sm text-[#4f6157]">
-                <p>PIN-koder i prototypen:</p>
-                <div className="grid gap-2">
+              <div className="space-y-5 p-4 text-sm text-[#4f6157]">
+                <form className="grid gap-3" onSubmit={addMember}>
+                  <div>
+                    <label className="field-label" htmlFor="new-member-name">
+                      Namn
+                    </label>
+                    <input
+                      autoComplete="off"
+                      className="field-input mt-1 w-full"
+                      id="new-member-name"
+                      maxLength={40}
+                      onChange={(event) => setNewMemberName(event.target.value)}
+                      placeholder="Familjemedlemmens namn"
+                      value={newMemberName}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="new-member-pin">
+                      Enkel PIN
+                    </label>
+                    <input
+                      autoComplete="new-password"
+                      className="field-input mt-1 w-full"
+                      id="new-member-pin"
+                      inputMode="numeric"
+                      maxLength={8}
+                      onChange={(event) => setNewMemberPin(event.target.value.replace(/\D/g, ""))}
+                      pattern="[0-9]{4,8}"
+                      placeholder="4-8 siffror"
+                      type="password"
+                      value={newMemberPin}
+                    />
+                  </div>
+                  <button className="primary-button justify-center" type="submit">
+                    Lägg till användare
+                  </button>
+                </form>
+
+                <div className="border-t border-[#e5eadf] pt-4">
+                  <h3 className="font-bold text-[#24362c]">Byt glömd PIN</h3>
+                  <div className="mt-3 grid gap-3">
                   {familyMembers.map((member) => (
-                    <div className="flex items-center justify-between rounded-md bg-[#f5f7f2] px-3 py-2" key={member.id}>
-                      <span className="font-semibold">{member.name}</span>
-                      <span className="font-mono font-bold">{member.pin}</span>
+                    <div className="rounded-md bg-[#f5f7f2] p-3" key={member.id}>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="font-semibold text-[#24362c]">{member.name}</span>
+                        <span className="text-xs font-bold uppercase text-[#66736b]">
+                          {member.role === "admin" ? "Admin" : "Spelare"}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          aria-label={`Ny PIN för ${member.name}`}
+                          autoComplete="new-password"
+                          className="field-input min-w-0 flex-1"
+                          inputMode="numeric"
+                          maxLength={8}
+                          onChange={(event) =>
+                            setResetPins((current) => ({
+                              ...current,
+                              [member.id]: event.target.value.replace(/\D/g, ""),
+                            }))
+                          }
+                          pattern="[0-9]{4,8}"
+                          placeholder="Ny PIN"
+                          type="password"
+                          value={resetPins[member.id] ?? ""}
+                        />
+                        <button className="control-button shrink-0" onClick={() => resetMemberPin(member)} type="button">
+                          Byt PIN
+                        </button>
+                      </div>
                     </div>
                   ))}
+                  </div>
                 </div>
+
+                <p aria-live="polite" className="font-semibold text-[#43544a]">
+                  {adminMessage}
+                </p>
               </div>
             </section>
           ) : null}
