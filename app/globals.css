@@ -235,26 +235,6 @@ button {
     padding: 0 8px;
   }
 
-  .tips-table th:first-child,
-  .tips-table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    max-width: 170px;
-    background: #ffffff;
-    box-shadow: 1px 0 0 #e5eadf;
-  }
-
-  .tips-table thead th:first-child {
-    z-index: 2;
-    background: #fbfcf8;
-  }
-
-  .tips-table th,
-  .tips-table td {
-    padding-right: 12px;
-    padding-left: 12px;
-  }
 }
 
 @media (min-width: 640px) {

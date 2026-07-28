@@ -91,8 +91,10 @@ export default function Home() {
   const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
   const [saveState, setSaveState] = useState("Logga in för att lägga dina tips.");
   const [activeView, setActiveView] = useState<"predictions" | "round-winners">("predictions");
+  const [selectedTipsMemberId, setSelectedTipsMemberId] = useState("");
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
+  const selectedTipsMember = familyMembers.find((member) => member.id === selectedTipsMemberId) ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +116,7 @@ export default function Home() {
         setCurrentMemberId(data.currentMember?.id ?? null);
         setNeedsSetup(data.needsSetup);
         setLoginMemberId(data.currentMember?.id ?? data.members[0]?.id ?? "");
+        setSelectedTipsMemberId(data.currentMember?.id ?? data.members[0]?.id ?? "");
         setLoginMessage(
           data.currentMember
             ? `Inloggad som ${data.currentMember.name}.`
@@ -224,6 +227,7 @@ export default function Home() {
 
       setCurrentMemberId(data.member.id);
       setLoginMemberId(data.member.id);
+      setSelectedTipsMemberId(data.member.id);
       setPin("");
       setLoginMessage(`Inloggad som ${data.member.name}.`);
       setSaveState("Du kan bara ändra din egen rad.");
@@ -260,6 +264,7 @@ export default function Home() {
       setFamilyMembers([data.member]);
       setCurrentMemberId(data.member.id);
       setLoginMemberId(data.member.id);
+      setSelectedTipsMemberId(data.member.id);
       setNeedsSetup(false);
       setSetupName("");
       setSetupPin("");
@@ -639,7 +644,48 @@ export default function Home() {
             <div className="border-b border-[#e5eadf] px-4 py-3">
               <h2 className="text-lg font-bold">Allas tips i omgång {selectedMatchday}</h2>
             </div>
-            <div className="mobile-table-scroll">
+            <div className="p-4 sm:hidden">
+              <label className="field-label" htmlFor="tips-member">
+                Visa tips för
+              </label>
+              <select
+                className="field-input mt-1"
+                id="tips-member"
+                onChange={(event) => setSelectedTipsMemberId(event.target.value)}
+                value={selectedTipsMemberId}
+              >
+                {familyMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+
+              {selectedTipsMember ? (
+                <div className="mt-4 divide-y divide-[#edf1e8] border-y border-[#e5eadf]">
+                  {roundFixtures.map((fixture) => {
+                    const canReveal = isLocked(fixture);
+                    const pick = predictions[selectedTipsMember.id]?.[fixture.id];
+                    const isOwnPick = currentMember?.id === selectedTipsMember.id;
+
+                    return (
+                      <div className="flex items-center justify-between gap-3 py-3" key={fixture.id}>
+                        <span className="font-semibold text-[#24362c]">
+                          {teamAbbreviation(fixture.homeTeam)} - {teamAbbreviation(fixture.awayTeam)}
+                        </span>
+                        <span className={`pick-pill ${canReveal && pick === fixture.result ? "pick-pill-correct" : ""}`}>
+                          {canReveal || isOwnPick ? pick ?? "-" : "Dold"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm font-medium text-[#5b6b61]">Inga familjemedlemmar är tillagda ännu.</p>
+              )}
+            </div>
+
+            <div className="mobile-table-scroll hidden sm:block">
               <table className="tips-table w-full min-w-[680px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
@@ -815,7 +861,35 @@ export default function Home() {
               <h2 className="text-lg font-bold">Totalställning</h2>
               <p className="mt-1 text-sm text-[#5b6b61]">Två bonuspoäng delas ut till varje omgångsvinnare.</p>
             </div>
-            <div className="mobile-table-scroll">
+            <div className="sm:hidden">
+              <table aria-label="Kompakt totalställning" className="w-full table-fixed border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[#fbfcf8] text-left text-[11px] font-bold uppercase text-[#66736b]">
+                    <th className="w-9 px-2 py-3 text-center">#</th>
+                    <th className="px-2 py-3">Deltagare</th>
+                    <th className="w-14 px-1 py-3 text-center">Poäng</th>
+                    <th className="w-14 px-1 py-3 text-center">Vinster</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {competition.standings.map((member, index) => (
+                    <tr className="border-t border-[#edf1e8]" key={member.memberId}>
+                      <td className="px-2 py-3 text-center font-bold">{index + 1}</td>
+                      <td className="min-w-0 px-2 py-3">
+                        <p className="break-words font-bold">{member.name}</p>
+                        <p className="mt-0.5 text-xs text-[#66736b]">
+                          {member.correct} rätt + {member.bonus} bonus
+                        </p>
+                      </td>
+                      <td className="px-1 py-3 text-center text-base font-bold text-[#1d513d]">{member.total}</td>
+                      <td className="px-1 py-3 text-center font-semibold">{member.roundWins}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mobile-table-scroll hidden sm:block">
               <table className="w-full min-w-[760px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
