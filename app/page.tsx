@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { calculateCompetition, type ScoringPredictionBook } from "@/lib/scoring";
+import { teamAbbreviation } from "@/lib/teams";
 
 type Prediction = "1" | "X" | "2";
 type MatchStatus = "SCHEDULED" | "IN_PLAY" | "FINISHED" | "POSTPONED";
@@ -596,7 +597,12 @@ export default function Home() {
                   <div className="col-span-2 min-w-0 sm:col-span-1">
                     <p className="text-sm text-[#5b6b61] sm:hidden">{formatKickoff(fixture.kickoff)}</p>
                     <h2 className="text-base font-bold text-[#17231d]">
-                      {fixture.homeTeam} - {fixture.awayTeam}
+                      <span className="sm:hidden">
+                        {teamAbbreviation(fixture.homeTeam)} - {teamAbbreviation(fixture.awayTeam)}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {fixture.homeTeam} - {fixture.awayTeam}
+                      </span>
                     </h2>
                     <p className="mt-1 text-sm text-[#65736a]">
                       {locked ? "Låst vid avspark" : fixture.status === "POSTPONED" ? "Inväntar ny tid" : "Öppen för tips"}
@@ -649,7 +655,12 @@ export default function Home() {
                   {roundFixtures.map((fixture) => (
                     <tr className="border-t border-[#edf1e8]" key={fixture.id}>
                       <td className="px-4 py-3 font-semibold">
-                        {fixture.homeTeam} - {fixture.awayTeam}
+                        <span className="sm:hidden">
+                          {teamAbbreviation(fixture.homeTeam)} - {teamAbbreviation(fixture.awayTeam)}
+                        </span>
+                        <span className="hidden sm:inline">
+                          {fixture.homeTeam} - {fixture.awayTeam}
+                        </span>
                       </td>
                       {familyMembers.map((member) => {
                         const canReveal = isLocked(fixture);
