@@ -18,6 +18,7 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
@@ -71,6 +72,13 @@ button {
     border-color 160ms ease,
     color 160ms ease,
     transform 160ms ease;
+}
+
+.control-button:disabled,
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
 }
 
 .control-button {
@@ -151,13 +159,34 @@ button {
 }
 
 .prediction-button {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 1px solid #c8d4c1;
   border-radius: 6px;
   background: #ffffff;
   color: #20352a;
   font-weight: 900;
+}
+
+.mobile-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-actions .primary-button {
+  grid-column: 1 / -1;
+}
+
+.mobile-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-grid > * {
+  min-width: 0;
 }
 
 .prediction-button:hover:not(:disabled) {
@@ -199,5 +228,47 @@ button {
 
   .view-tabs {
     width: 100%;
+  }
+
+  .view-tab {
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .tips-table th:first-child,
+  .tips-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    max-width: 170px;
+    background: #ffffff;
+    box-shadow: 1px 0 0 #e5eadf;
+  }
+
+  .tips-table thead th:first-child {
+    z-index: 2;
+    background: #fbfcf8;
+  }
+
+  .tips-table th,
+  .tips-table td {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+@media (min-width: 640px) {
+  .prediction-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mobile-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .mobile-actions .primary-button {
+    grid-column: auto;
   }
 }

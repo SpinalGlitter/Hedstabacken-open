@@ -382,29 +382,29 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f5f7f2] text-[#17231d]">
       <section className="border-b border-[#d6decf] bg-[#eaf0e4]">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#3f6f5a]">Hedstabacken Open</p>
-              <h1 className="mt-2 max-w-3xl text-4xl font-bold text-[#112019] sm:text-5xl">
+              <h1 className="mt-2 max-w-3xl text-3xl font-bold leading-tight text-[#112019] sm:text-5xl">
                 Familjens Premier League-tips
               </h1>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#4b5d51]">
                 Logga in med ditt namn, tippa din egen rad och låt appen räkna tabellen när resultaten synkas.
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-3 rounded-lg border border-[#ccd8c4] bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-3 gap-2 rounded-lg border border-[#ccd8c4] bg-white p-3 shadow-sm sm:gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Säsong</p>
-                <p className="mt-1 text-lg font-bold">{seasonLabel}</p>
+                <p className="mt-1 text-base font-bold sm:text-lg">{seasonLabel}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Matcher</p>
-                <p className="mt-1 text-lg font-bold">10/omg.</p>
+                <p className="mt-1 text-base font-bold sm:text-lg">10/omg.</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase text-[#66736b]">Import</p>
-                <p className="mt-1 text-lg font-bold">{fixtures.length > 0 ? "API aktiv" : "Laddar"}</p>
+                <p className="mt-1 text-base font-bold sm:text-lg">{fixtures.length > 0 ? "API aktiv" : "Laddar"}</p>
               </div>
             </div>
           </div>
@@ -497,7 +497,7 @@ export default function Home() {
               </form>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="mobile-actions">
               <button className="control-button" onClick={() => randomizeRound(true)} type="button">
                 Slumpa tomma
               </button>
@@ -514,8 +514,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
-        <div className="lg:col-span-2">
+      <section className="page-grid mx-auto grid w-full max-w-7xl gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
+        <div className="min-w-0 lg:col-span-2">
           <div className="view-tabs" aria-label="Välj vy">
             <button
               aria-pressed={activeView === "predictions"}
@@ -536,8 +536,26 @@ export default function Home() {
           </div>
         </div>
 
-        <div className={activeView === "predictions" ? "space-y-5" : "hidden"}>
-          <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Välj omgång">
+        <div className={activeView === "predictions" ? "min-w-0 space-y-4 sm:space-y-5" : "hidden"}>
+          <div className="sm:hidden">
+            <label className="field-label" htmlFor="matchday">
+              Välj omgång
+            </label>
+            <select
+              className="field-input mt-1"
+              id="matchday"
+              onChange={(event) => setSelectedMatchday(Number(event.target.value))}
+              value={selectedMatchday}
+            >
+              {matchdays.map((matchday) => (
+                <option key={matchday} value={matchday}>
+                  Omgång {matchday}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="hidden min-w-0 gap-2 overflow-x-auto pb-1 sm:flex" aria-label="Välj omgång">
             {matchdays.map((matchday) => (
               <button
                 className={`round-tab ${selectedMatchday === matchday ? "round-tab-active" : ""}`}
@@ -550,9 +568,9 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
-            <div className="grid grid-cols-[1fr_88px_120px] border-b border-[#e5eadf] bg-[#fbfcf8] px-4 py-3 text-xs font-bold uppercase text-[#66736b] sm:grid-cols-[150px_1fr_88px_120px]">
-              <span className="hidden sm:block">Avspark</span>
+          <div className="min-w-0 overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+            <div className="hidden grid-cols-[150px_minmax(0,1fr)_88px_120px] border-b border-[#e5eadf] bg-[#fbfcf8] px-4 py-3 text-xs font-bold uppercase text-[#66736b] sm:grid">
+              <span>Avspark</span>
               <span>Match</span>
               <span>Resultat</span>
               <span>{currentMember ? `${currentMember.name}s tips` : "Ditt tips"}</span>
@@ -568,14 +586,14 @@ export default function Home() {
 
               return (
                 <article
-                  className="grid grid-cols-[1fr_88px_120px] items-center gap-3 border-b border-[#edf1e8] px-4 py-4 last:border-b-0 sm:grid-cols-[150px_1fr_88px_120px]"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 border-b border-[#edf1e8] px-4 py-4 last:border-b-0 sm:grid-cols-[150px_minmax(0,1fr)_88px_120px] sm:gap-3"
                   key={fixture.id}
                 >
                   <div className="hidden text-sm text-[#5b6b61] sm:block">
                     <p className="font-semibold text-[#24362c]">{formatKickoff(fixture.kickoff)}</p>
                     <p>{statusLabel(fixture.status)}</p>
                   </div>
-                  <div>
+                  <div className="col-span-2 min-w-0 sm:col-span-1">
                     <p className="text-sm text-[#5b6b61] sm:hidden">{formatKickoff(fixture.kickoff)}</p>
                     <h2 className="text-base font-bold text-[#17231d]">
                       {fixture.homeTeam} - {fixture.awayTeam}
@@ -584,7 +602,10 @@ export default function Home() {
                       {locked ? "Låst vid avspark" : fixture.status === "POSTPONED" ? "Inväntar ny tid" : "Öppen för tips"}
                     </p>
                   </div>
-                  <div className="text-sm font-bold text-[#24362c]">{fixture.score ?? "-"}</div>
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#24362c] sm:block">
+                    <span className="text-xs font-bold uppercase text-[#66736b] sm:hidden">Resultat</span>
+                    <span>{fixture.score ?? "-"}</span>
+                  </div>
                   <div className="prediction-group" aria-label={`Tips för ${fixture.homeTeam} mot ${fixture.awayTeam}`}>
                     {predictionOptions.map((option) => (
                       <button
@@ -608,12 +629,12 @@ export default function Home() {
             {saveState}
           </p>
 
-          <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+          <section className="min-w-0 rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">
               <h2 className="text-lg font-bold">Allas tips i omgång {selectedMatchday}</h2>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] border-collapse text-sm">
+            <div className="mobile-table-scroll">
+              <table className="tips-table w-full min-w-[680px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
                     <th className="px-4 py-3">Match</th>
@@ -651,7 +672,7 @@ export default function Home() {
           </section>
         </div>
 
-        <aside className={activeView === "predictions" ? "space-y-5" : "hidden"}>
+        <aside className={activeView === "predictions" ? "min-w-0 space-y-4 sm:space-y-5" : "hidden"}>
           <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">
               <h2 className="text-lg font-bold">Totalställning</h2>
@@ -733,7 +754,7 @@ export default function Home() {
                           {member.role === "admin" ? "Admin" : "Spelare"}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                         <input
                           aria-label={`Ny PIN för ${member.name}`}
                           autoComplete="new-password"
@@ -777,13 +798,13 @@ export default function Home() {
           </section>
         </aside>
 
-        <div className={activeView === "round-winners" ? "space-y-5 lg:col-span-2" : "hidden"}>
+        <div className={activeView === "round-winners" ? "min-w-0 space-y-4 sm:space-y-5 lg:col-span-2" : "hidden"}>
           <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">
               <h2 className="text-lg font-bold">Totalställning</h2>
               <p className="mt-1 text-sm text-[#5b6b61]">Två bonuspoäng delas ut till varje omgångsvinnare.</p>
             </div>
-            <div className="overflow-x-auto">
+            <div className="mobile-table-scroll">
               <table className="w-full min-w-[760px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
@@ -843,7 +864,7 @@ export default function Home() {
                   Inga omgångar är färdigspelade ännu.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="mobile-table-scroll">
                   <table className="w-full min-w-[560px] border-collapse text-sm">
                     <thead>
                       <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
