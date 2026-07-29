@@ -43,9 +43,11 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /id="tips-member"/);
   assert.match(html, /Kompakt totalställning/);
   assert.match(html, /Totalställning/);
-  assert.match(html, /Omgångsvinnare/);
-  assert.match(html, /Bonuspoäng/);
-  assert.match(html, /Flest omgångsvinster/);
+  assert.match(html, /Poängtabell/);
+  assert.match(html, /100 poäng/);
+  assert.match(html, /delas mellan dem som tippat rätt/);
+  assert.match(html, /bonuspott på 50 poäng/);
+  assert.doesNotMatch(html, /Omgångsvinnare|Bonuspoäng|Flest omgångsvinster/);
   assert.doesNotMatch(html, /Det här är fortfarande demodata|Ej körd/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });
@@ -60,7 +62,7 @@ test("removes starter preview code and dependency", async () => {
 
   assert.deepEqual(previewFiles, []);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
-  assert.doesNotMatch(page, /1979|2468|1357|8642|PIN-koder i prototypen/);
+  assert.doesNotMatch(page, /1979|2468|1357|8642|PIN-koder i prototypen|sparade i prototypen/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });

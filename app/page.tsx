@@ -38,6 +38,11 @@ type FamilyResponse = {
   error?: string;
 };
 
+type PredictionsResponse = {
+  predictions: ScoringPredictionBook;
+  error?: string;
+};
+
 const predictionOptions: Prediction[] = ["1", "X", "2"];
 
 function randomPrediction(): Prediction {
@@ -70,6 +75,17 @@ function statusLabel(status: MatchStatus) {
   return labels[status];
 }
 
+async function fetchPredictionBook() {
+  const response = await fetch("/api/predictions", { cache: "no-store" });
+  const data = (await response.json()) as PredictionsResponse;
+
+  if (!response.ok) {
+    throw new Error(data.error ?? "Tipsen kunde inte hämtas.");
+  }
+
+  return data.predictions;
+}
+
 export default function Home() {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
@@ -90,7 +106,7 @@ export default function Home() {
   const [selectedMatchday, setSelectedMatchday] = useState(1);
   const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
   const [saveState, setSaveState] = useState("Logga in för att lägga dina tips.");
-  const [activeView, setActiveView] = useState<"predictions" | "round-winners">("predictions");
+  const [activeView, setActiveView] = useState<"predictions" | "standings">("predictions");
   const [selectedTipsMemberId, setSelectedTipsMemberId] = useState("");
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
@@ -136,6 +152,28 @@ export default function Home() {
     }
 
     void loadFamily();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPredictions() {
+      try {
+        const predictionBook = await fetchPredictionBook();
+        if (!cancelled) {
+          setPredictions(predictionBook);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSaveState(error instanceof Error ? error.message : "Tipsen kunde inte hämtas.");
+        }
+      }
+    }
+
+    void loadPredictions();
     return () => {
       cancelled = true;
     };
@@ -201,14 +239,6 @@ export default function Home() {
     [familyMembers, fixtures, predictions],
   );
 
-  const roundWinStandings = useMemo(
-    () =>
-      [...competition.standings].sort(
-        (a, b) => b.roundWins - a.roundWins || b.total - a.total || b.correct - a.correct || a.name.localeCompare(b.name),
-      ),
-    [competition.standings],
-  );
-
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoginMessage("Loggar in...");
@@ -231,6 +261,12 @@ export default function Home() {
       setPin("");
       setLoginMessage(`Inloggad som ${data.member.name}.`);
       setSaveState("Du kan bara ändra din egen rad.");
+
+      try {
+        setPredictions(await fetchPredictionBook());
+      } catch (error) {
+        setSaveState(error instanceof Error ? error.message : "Dina sparade tips kunde inte hämtas.");
+      }
     } catch (error) {
       setLoginMessage(
         error instanceof Error ? `${error.message} Be admin byta koden om den är glömd.` : "Inloggningen misslyckades.",
@@ -243,6 +279,7 @@ export default function Home() {
     setCurrentMemberId(null);
     setLoginMessage("Logga in med namn och PIN-kod.");
     setSaveState("Logga in för att lägga dina tips.");
+    setPredictions(await fetchPredictionBook().catch(() => ({})));
   }
 
   async function createFirstAdmin(event: FormEvent<HTMLFormElement>) {
@@ -376,13 +413,41 @@ export default function Home() {
     setSaveState(onlyEmpty ? "Tomma matcher slumpades." : "Omgångens öppna matcher slumpades.");
   }
 
-  function savePredictions() {
+  async function savePredictions() {
     if (!currentMember) {
       setSaveState("Logga in först.");
       return;
     }
 
-    setSaveState(`Tipsen för ${currentMember.name} är sparade i prototypen.`);
+    const roundPredictions = roundFixtures.flatMap((fixture) => {
+      const pick = predictions[currentMember.id]?.[fixture.id];
+      return pick && !isLocked(fixture) && fixture.status !== "POSTPONED"
+        ? [{ fixtureId: fixture.id, pick }]
+        : [];
+    });
+
+    if (roundPredictions.length === 0) {
+      setSaveState("Det finns inga öppna tips att spara i omgången.");
+      return;
+    }
+
+    setSaveState("Sparar tipsen...");
+    try {
+      const response = await fetch("/api/predictions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ predictions: roundPredictions }),
+      });
+      const data = (await response.json()) as { saved?: number; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Tipsen kunde inte sparas.");
+      }
+
+      setSaveState(`${data.saved ?? roundPredictions.length} tips för ${currentMember.name} är sparade.`);
+    } catch (error) {
+      setSaveState(error instanceof Error ? error.message : "Tipsen kunde inte sparas.");
+    }
   }
 
   return (
@@ -532,12 +597,12 @@ export default function Home() {
               Tippa matcher
             </button>
             <button
-              aria-pressed={activeView === "round-winners"}
-              className={`view-tab ${activeView === "round-winners" ? "view-tab-active" : ""}`}
-              onClick={() => setActiveView("round-winners")}
+              aria-pressed={activeView === "standings"}
+              className={`view-tab ${activeView === "standings" ? "view-tab-active" : ""}`}
+              onClick={() => setActiveView("standings")}
               type="button"
             >
-              Omgångsvinnare
+              Poängtabell
             </button>
           </div>
         </div>
@@ -744,14 +809,17 @@ export default function Home() {
                     <div>
                       <p className="font-bold">{member.name}</p>
                       <p className="text-sm text-[#66736b]">
-                        {member.correct} rätt + {member.bonus} bonus
+                        {member.matchPoints} matchpoäng + {member.roundBonus} bonus
                       </p>
                       <p className="text-xs font-semibold text-[#52635a]">
-                        {member.roundWins} {member.roundWins === 1 ? "omgångsvinst" : "omgångsvinster"}
+                        {member.correct} rätt · {member.roundWins} {member.roundWins === 1 ? "omgångsvinst" : "omgångsvinster"}
                       </p>
                     </div>
                   </div>
-                  <span className="text-2xl font-bold text-[#1d513d]">{member.total}</span>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-[#1d513d]">{member.total}</span>
+                    <p className="text-xs font-bold uppercase text-[#66736b]">poäng</p>
+                  </div>
                 </li>
               ))}
             </ol>
@@ -855,11 +923,13 @@ export default function Home() {
           </section>
         </aside>
 
-        <div className={activeView === "round-winners" ? "min-w-0 space-y-4 sm:space-y-5 lg:col-span-2" : "hidden"}>
+        <div className={activeView === "standings" ? "min-w-0 space-y-4 sm:space-y-5 lg:col-span-2" : "hidden"}>
           <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">
-              <h2 className="text-lg font-bold">Totalställning</h2>
-              <p className="mt-1 text-sm text-[#5b6b61]">Två bonuspoäng delas ut till varje omgångsvinnare.</p>
+              <h2 className="text-lg font-bold">Poängtabell</h2>
+              <p className="mt-1 text-sm leading-6 text-[#5b6b61]">
+                Varje match har en pott på 100 poäng som delas mellan dem som tippat rätt. Varje omgång har dessutom en bonuspott på 50 poäng som delas mellan vinnarna.
+              </p>
             </div>
             <div className="sm:hidden">
               <table aria-label="Kompakt totalställning" className="w-full table-fixed border-collapse text-sm">
@@ -867,8 +937,7 @@ export default function Home() {
                   <tr className="bg-[#fbfcf8] text-left text-[11px] font-bold uppercase text-[#66736b]">
                     <th className="w-9 px-2 py-3 text-center">#</th>
                     <th className="px-2 py-3">Deltagare</th>
-                    <th className="w-14 px-1 py-3 text-center">Poäng</th>
-                    <th className="w-14 px-1 py-3 text-center">Vinster</th>
+                    <th className="w-16 px-2 py-3 text-center">Poäng</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -878,11 +947,10 @@ export default function Home() {
                       <td className="min-w-0 px-2 py-3">
                         <p className="break-words font-bold">{member.name}</p>
                         <p className="mt-0.5 text-xs text-[#66736b]">
-                          {member.correct} rätt + {member.bonus} bonus
+                          {member.correct} rätt · {member.roundBonus} bonus
                         </p>
                       </td>
-                      <td className="px-1 py-3 text-center text-base font-bold text-[#1d513d]">{member.total}</td>
-                      <td className="px-1 py-3 text-center font-semibold">{member.roundWins}</td>
+                      <td className="px-2 py-3 text-center text-base font-bold text-[#1d513d]">{member.total}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -890,15 +958,15 @@ export default function Home() {
             </div>
 
             <div className="mobile-table-scroll hidden sm:block">
-              <table className="w-full min-w-[760px] border-collapse text-sm">
+              <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
                     <th className="px-4 py-3">Placering</th>
                     <th className="px-4 py-3">Deltagare</th>
                     <th className="px-4 py-3">Antal rätt</th>
-                    <th className="px-4 py-3">Bonuspoäng</th>
+                    <th className="px-4 py-3">Matchpoäng</th>
+                    <th className="px-4 py-3">Omgångsbonus</th>
                     <th className="px-4 py-3">Totalpoäng</th>
-                    <th className="px-4 py-3">Omgångsvinster</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -907,90 +975,15 @@ export default function Home() {
                       <td className="px-4 py-3 font-bold">{index + 1}</td>
                       <td className="px-4 py-3 font-bold">{member.name}</td>
                       <td className="px-4 py-3">{member.correct}</td>
-                      <td className="px-4 py-3">{member.bonus}</td>
+                      <td className="px-4 py-3">{member.matchPoints}</td>
+                      <td className="px-4 py-3">{member.roundBonus}</td>
                       <td className="px-4 py-3 text-base font-bold text-[#1d513d]">{member.total}</td>
-                      <td className="px-4 py-3 font-semibold">{member.roundWins}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </section>
-
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
-              <div className="border-b border-[#e5eadf] px-4 py-3">
-                <h2 className="text-lg font-bold">Flest omgångsvinster</h2>
-              </div>
-              <ol className="divide-y divide-[#edf1e8]">
-                {roundWinStandings.map((member, index) => (
-                  <li className="flex items-center justify-between gap-4 px-4 py-4" key={member.memberId}>
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-8 w-8 place-items-center rounded-md bg-[#e9f0e3] text-sm font-bold">
-                        {index + 1}
-                      </span>
-                      <div>
-                        <p className="font-bold">{member.name}</p>
-                        <p className="text-sm text-[#66736b]">{member.total} totalpoäng</p>
-                      </div>
-                    </div>
-                    <span className="text-2xl font-bold text-[#1d513d]">{member.roundWins}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-
-            <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
-              <div className="border-b border-[#e5eadf] px-4 py-3">
-                <h2 className="text-lg font-bold">Vinnare för varje spelad omgång</h2>
-              </div>
-              {competition.roundResults.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm font-medium text-[#5b6b61]">
-                  Inga omgångar är färdigspelade ännu.
-                </p>
-              ) : (
-                <div className="mobile-table-scroll">
-                  <table className="w-full min-w-[560px] border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
-                        <th className="px-4 py-3">Omgång</th>
-                        <th className="px-4 py-3">Vinnare</th>
-                        <th className="px-4 py-3">Antal rätt</th>
-                        <th className="px-4 py-3">Bonus</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {competition.roundResults.map((round) => {
-                        const winnerNames = round.winnerIds.map(
-                          (winnerId) => familyMembers.find((member) => member.id === winnerId)?.name ?? winnerId,
-                        );
-
-                        return (
-                          <tr className="border-t border-[#edf1e8]" key={round.matchday}>
-                            <td className="px-4 py-3 font-bold">{round.matchday}</td>
-                            <td className="px-4 py-3 font-semibold">
-                              {winnerNames.length > 0 ? winnerNames.join(", ") : "Ingen fullständig rad"}
-                              {round.shared ? (
-                                <span className="ml-2 inline-block rounded bg-[#eef2ea] px-2 py-1 text-xs font-bold text-[#43544a]">
-                                  Delad
-                                </span>
-                              ) : null}
-                            </td>
-                            <td className="px-4 py-3">{round.maxCorrect ?? "-"}</td>
-                            <td className="px-4 py-3">{winnerNames.length > 0 ? "+2 var" : "-"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </div>
-
-          <p className="rounded-md border border-[#d8e1d0] bg-white px-4 py-3 text-sm font-medium text-[#45564b]">
-            Bonus delas ut först när alla matcher i omgången är färdigspelade. Delad förstaplats ger två bonuspoäng och en omgångsvinst till samtliga vinnare.
-          </p>
         </div>
       </section>
     </main>
