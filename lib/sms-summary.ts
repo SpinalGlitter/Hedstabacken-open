@@ -34,15 +34,15 @@ export function buildRoundSms(input: {
   const mostCorrect = formatNames(round.mostCorrectIds, names);
   const leaders = formatNames(leaderIds, names);
   const winnerText = round.winnerIds.length === 1
-    ? `${winners} vann på ${round.maxMatchPoints}p (+${round.bonusPerWinner})`
+    ? `Grattis ${winners} som vann omgång ${round.matchday} på ${round.maxMatchPoints}p och får ${round.bonusPerWinner} bonuspoäng`
     : round.winnerIds.length > 1
-      ? `${winners} delade segern på ${round.maxMatchPoints}p (+${round.bonusPerWinner} var)`
-      : "ingen vinnare";
+      ? `Grattis ${winners} som delade segern i omgång ${round.matchday} på ${round.maxMatchPoints}p och får ${round.bonusPerWinner} bonuspoäng var`
+      : `Omgång ${round.matchday} fick ingen vinnare`;
   const correctText = round.maxCorrect
     ? `${mostCorrect} (${round.maxCorrect})`
     : "ingen";
   const leaderText = leaderIds.length > 0 ? `${leaders} (${leaderPoints}p)` : "ingen";
-  const full = `Omgång ${round.matchday}: ${winnerText}. Flest rätt: ${correctText}. Totalledare: ${leaderText}. ${siteUrl}`;
+  const full = `${winnerText}. Flest rätt: ${correctText}. Totalledare: ${leaderText}. ${siteUrl}`;
 
   if (full.length <= 160) {
     return full;
@@ -54,11 +54,11 @@ export function buildRoundSms(input: {
   const compactCorrect = round.mostCorrectIds.length === 1
     ? mostCorrect
     : `${round.mostCorrectIds.length} personer`;
-  const compact = `Omg ${round.matchday}: ${compactWinners} vann, ${round.maxMatchPoints}p (+${round.bonusPerWinner}). Flest rätt: ${compactCorrect} (${round.maxCorrect ?? 0}). ${siteUrl}`;
+  const compact = `Grattis ${compactWinners}, vinnare av omg ${round.matchday} på ${round.maxMatchPoints}p (+${round.bonusPerWinner}). Flest rätt: ${compactCorrect} (${round.maxCorrect ?? 0}). ${siteUrl}`;
 
   if (compact.length <= 160) {
     return compact;
   }
 
-  return `Omg ${round.matchday} klar. Vinnare: ${compactWinners}. Flest rätt: ${round.maxCorrect ?? 0}. ${siteUrl}`;
+  return `Grattis ${compactWinners}, vinnare av omg ${round.matchday}! ${round.maxMatchPoints}p (+${round.bonusPerWinner}). Flest rätt: ${round.maxCorrect ?? 0}. ${siteUrl}`;
 }

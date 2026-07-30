@@ -31,7 +31,8 @@ test("builds a concise round summary with winners and most correct picks", () =>
     leaderPoints: 1842,
   });
 
-  assert.match(message, /Anna vann på 284p/);
+  assert.match(message, /Grattis Anna/);
+  assert.match(message, /vann omgång 12 på 284p/);
   assert.match(message, /Flest rätt: Erik \(8\)/);
   assert.match(message, /Totalledare: Anna \(1842p\)/);
   assert.ok(message.length <= 160);
