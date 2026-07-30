@@ -69,6 +69,8 @@ test("splits the 50 point round bonus pool between shared winners", () => {
   const competition = calculateCompetition(members, fixtures, predictions);
 
   assert.deepEqual(competition.roundResults[0].winnerIds, ["anna", "erik"]);
+  assert.deepEqual(competition.roundResults[0].mostCorrectIds, ["anna", "erik"]);
+  assert.equal(competition.roundResults[0].maxCorrect, 2);
   assert.equal(competition.roundResults[0].bonusPerWinner, 25);
   assert.equal(competition.standings.find((member) => member.memberId === "anna")?.roundBonus, 25);
   assert.equal(competition.standings.find((member) => member.memberId === "erik")?.roundBonus, 25);

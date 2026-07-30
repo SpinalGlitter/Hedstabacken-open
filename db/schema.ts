@@ -9,6 +9,8 @@ export const familyMembers = sqliteTable(
     loginName: text("login_name").notNull(),
     email: text("email").notNull(),
     pinCode: text("pin_code").notNull(),
+    phoneNumber: text("phone_number"),
+    smsOptIn: integer("sms_opt_in", { mode: "boolean" }).notNull().default(false),
     role: text("role", { enum: ["admin", "player"] }).notNull().default("player"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -98,3 +100,52 @@ export const fixtureCorrections = sqliteTable("fixture_corrections", {
   reason: text("reason").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const roundNotifications = sqliteTable(
+  "round_notifications",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    seasonId: integer("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    matchday: integer("matchday").notNull(),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["pending", "processing", "sent"] })
+      .notNull()
+      .default("pending"),
+    sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("round_notifications_season_matchday_idx").on(table.seasonId, table.matchday),
+  ],
+);
+
+export const smsDeliveries = sqliteTable(
+  "sms_deliveries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    notificationId: integer("notification_id")
+      .notNull()
+      .references(() => roundNotifications.id, { onDelete: "cascade" }),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    phoneNumber: text("phone_number").notNull(),
+    status: text("status", { enum: ["pending", "sent", "failed"] })
+      .notNull()
+      .default("pending"),
+    providerMessageId: text("provider_message_id"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("sms_deliveries_notification_member_idx").on(table.notificationId, table.memberId),
+    index("sms_deliveries_notification_idx").on(table.notificationId),
+  ],
+);

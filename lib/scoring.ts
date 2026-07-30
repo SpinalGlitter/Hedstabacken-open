@@ -29,6 +29,8 @@ export type RoundResult = {
   matchday: number;
   winnerIds: string[];
   maxMatchPoints: number | null;
+  mostCorrectIds: string[];
+  maxCorrect: number | null;
   bonusPerWinner: number;
 };
 
@@ -80,7 +82,10 @@ export function calculateCompetition(
             : points,
         0,
       );
-      return [{ memberId: member.id, matchPoints }];
+      const correct = roundFixtures.filter(
+        (fixture) => memberPredictions[fixture.id] === fixture.result,
+      ).length;
+      return [{ memberId: member.id, matchPoints, correct }];
     });
     const maxMatchPoints = eligibleScores.length > 0
       ? Math.max(...eligibleScores.map((score) => score.matchPoints))
@@ -90,9 +95,15 @@ export function calculateCompetition(
           .filter((score) => score.matchPoints === maxMatchPoints)
           .map((score) => score.memberId)
       : [];
+    const maxCorrect = eligibleScores.length > 0
+      ? Math.max(...eligibleScores.map((score) => score.correct))
+      : null;
+    const mostCorrectIds = maxCorrect && maxCorrect > 0
+      ? eligibleScores.filter((score) => score.correct === maxCorrect).map((score) => score.memberId)
+      : [];
     const bonusPerWinner = winnerIds.length > 0 ? Math.floor(50 / winnerIds.length) : 0;
 
-    return [{ matchday, winnerIds, maxMatchPoints, bonusPerWinner }];
+    return [{ matchday, winnerIds, maxMatchPoints, mostCorrectIds, maxCorrect, bonusPerWinner }];
   });
 
   const standings = members

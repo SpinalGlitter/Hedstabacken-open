@@ -31,6 +31,11 @@ type FamilyMember = {
   role: "admin" | "player";
 };
 
+type AdminMember = FamilyMember & {
+  phoneNumber: string | null;
+  smsOptIn: boolean;
+};
+
 type FamilyResponse = {
   members: FamilyMember[];
   currentMember: FamilyMember | null;
@@ -100,6 +105,9 @@ export default function Home() {
   const [newMemberPin, setNewMemberPin] = useState("");
   const [resetPins, setResetPins] = useState<Record<string, string>>({});
   const [adminMessage, setAdminMessage] = useState("Här kan du lägga till familjemedlemmar och byta deras PIN.");
+  const [smsMembers, setSmsMembers] = useState<AdminMember[]>([]);
+  const [smsConfigured, setSmsConfigured] = useState(false);
+  const [smsMessage, setSmsMessage] = useState("Laddar SMS-inställningar...");
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [seasonLabel, setSeasonLabel] = useState("2026/27");
   const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
@@ -156,6 +164,51 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSmsAdmin() {
+      if (currentMember?.role !== "admin") {
+        setSmsMembers([]);
+        return;
+      }
+
+      try {
+        const [membersResponse, statusResponse] = await Promise.all([
+          fetch("/api/members", { cache: "no-store" }),
+          fetch("/api/notifications", { cache: "no-store" }),
+        ]);
+        const membersData = (await membersResponse.json()) as { members?: AdminMember[]; error?: string };
+        const statusData = (await statusResponse.json()) as { configured?: boolean; error?: string };
+
+        if (!membersResponse.ok || !membersData.members) {
+          throw new Error(membersData.error ?? "Mobilnumren kunde inte hämtas.");
+        }
+        if (!statusResponse.ok) {
+          throw new Error(statusData.error ?? "SMS-status kunde inte hämtas.");
+        }
+        if (!cancelled) {
+          setSmsMembers(membersData.members);
+          setSmsConfigured(statusData.configured === true);
+          setSmsMessage(
+            statusData.configured
+              ? "SMS-tjänsten är ansluten. Testa varje nummer innan första omgången."
+              : "SMS-tjänsten väntar på API-uppgifterna från 46elks.",
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSmsMessage(error instanceof Error ? error.message : "SMS-inställningarna kunde inte hämtas.");
+        }
+      }
+    }
+
+    void loadSmsAdmin();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMember?.role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -362,6 +415,85 @@ export default function Home() {
       }
     } catch (error) {
       setAdminMessage(error instanceof Error ? error.message : "PIN-koden kunde inte bytas.");
+    }
+  }
+
+  function updateSmsMember(memberId: string, changes: Partial<AdminMember>) {
+    setSmsMembers((members) =>
+      members.map((member) => (member.id === memberId ? { ...member, ...changes } : member)),
+    );
+  }
+
+  async function saveSmsMember(member: AdminMember) {
+    setSmsMessage(`Sparar SMS-inställningar för ${member.name}...`);
+
+    try {
+      const response = await fetch(`/api/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: member.phoneNumber ?? "", smsOptIn: member.smsOptIn }),
+      });
+      const data = (await response.json()) as {
+        member?: { id: string; phoneNumber: string | null; smsOptIn: boolean };
+        error?: string;
+      };
+      if (!response.ok || !data.member) {
+        throw new Error(data.error ?? "SMS-inställningen kunde inte sparas.");
+      }
+
+      updateSmsMember(member.id, data.member);
+      setSmsMessage(`SMS-inställningarna för ${member.name} är sparade.`);
+    } catch (error) {
+      setSmsMessage(error instanceof Error ? error.message : "SMS-inställningen kunde inte sparas.");
+    }
+  }
+
+  async function sendSmsTest(member: AdminMember) {
+    setSmsMessage(`Skickar test-SMS till ${member.name}...`);
+
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", memberId: member.id }),
+      });
+      const data = (await response.json()) as { parts?: number; error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Testmeddelandet kunde inte skickas.");
+      }
+
+      setSmsMessage(`Test-SMS skickat till ${member.name}${data.parts ? ` (${data.parts} SMS-del)` : ""}.`);
+    } catch (error) {
+      setSmsMessage(error instanceof Error ? error.message : "Testmeddelandet kunde inte skickas.");
+    }
+  }
+
+  async function runSmsCheck() {
+    setSmsMessage("Kontrollerar färdigspelade omgångar...");
+
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "run" }),
+      });
+      const data = (await response.json()) as {
+        rounds?: number;
+        sent?: number;
+        failed?: number;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Omgångarna kunde inte kontrolleras.");
+      }
+
+      setSmsMessage(
+        data.rounds
+          ? `${data.sent ?? 0} SMS skickades${data.failed ? `, ${data.failed} misslyckades` : ""}.`
+          : "Det finns ingen ny färdigspelad omgång att skicka.",
+      );
+    } catch (error) {
+      setSmsMessage(error instanceof Error ? error.message : "Omgångarna kunde inte kontrolleras.");
     }
   }
 
@@ -906,6 +1038,71 @@ export default function Home() {
                   </div>
                 </div>
 
+                <div className="border-t border-[#e5eadf] pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-[#24362c]">SMS efter omgången</h3>
+                      <p className="mt-1 text-xs leading-5 text-[#66736b]">
+                        Nummer sparas i svenskt format. Aktivera bara SMS för deltagare som vill få utskicken.
+                      </p>
+                    </div>
+                    <button
+                      className="control-button"
+                      disabled={!smsConfigured}
+                      onClick={runSmsCheck}
+                      type="button"
+                    >
+                      Kontrollera nu
+                    </button>
+                  </div>
+
+                  <div className="mt-3 divide-y divide-[#e5eadf] border-y border-[#e5eadf]">
+                    {smsMembers.map((member) => (
+                      <div className="space-y-3 py-4" key={member.id}>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-semibold text-[#24362c]">{member.name}</span>
+                          <label className="flex items-center gap-2 font-semibold text-[#43544a]">
+                            <input
+                              checked={member.smsOptIn}
+                              className="h-5 w-5 accent-[#1d513d]"
+                              onChange={(event) => updateSmsMember(member.id, { smsOptIn: event.target.checked })}
+                              type="checkbox"
+                            />
+                            Få SMS
+                          </label>
+                        </div>
+                        <input
+                          aria-label={`Mobilnummer för ${member.name}`}
+                          autoComplete="tel"
+                          className="field-input w-full"
+                          inputMode="tel"
+                          onChange={(event) => updateSmsMember(member.id, { phoneNumber: event.target.value })}
+                          placeholder="0701234567"
+                          type="tel"
+                          value={member.phoneNumber ?? ""}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <button className="control-button justify-center" onClick={() => saveSmsMember(member)} type="button">
+                            Spara
+                          </button>
+                          <button
+                            className="control-button justify-center"
+                            disabled={!smsConfigured || !member.smsOptIn || !member.phoneNumber}
+                            onClick={() => sendSmsTest(member)}
+                            type="button"
+                          >
+                            Skicka test
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p aria-live="polite" className="mt-3 font-semibold text-[#43544a]">
+                    {smsMessage}
+                  </p>
+                </div>
+
                 <p aria-live="polite" className="font-semibold text-[#43544a]">
                   {adminMessage}
                 </p>
@@ -918,7 +1115,7 @@ export default function Home() {
             <div className="mt-4 space-y-3 text-sm text-[#4f6157]">
               <p>{syncMessage}</p>
               <p>Spelschema och resultat hämtas från football-data.org och sparas i appens databas.</p>
-              <p>Appen kontrollerar efter uppdateringar ungefär var femtonde minut när någon öppnar den.</p>
+              <p>Appen kontrollerar resultaten automatiskt varje timme och även när någon öppnar den.</p>
             </div>
           </section>
         </aside>

@@ -3,6 +3,7 @@ import {
   normalizeMatchStatus,
   winnerToPick,
 } from "@/lib/football-data";
+import { processRoundNotifications } from "@/lib/round-notifications";
 
 const SEASON_START_YEAR = 2026;
 const SEASON_LABEL = "2026/27";
@@ -156,11 +157,13 @@ export async function GET() {
   const seasonId = await getSeasonId(runtimeEnv.DB);
   let fixtures = await readFixtures(runtimeEnv.DB, seasonId);
   let warning: string | undefined;
+  let didSync = false;
 
   if (shouldSync(fixtures)) {
     try {
       await syncFixtures(runtimeEnv.DB, seasonId, runtimeEnv.FOOTBALL_DATA_API_TOKEN);
       fixtures = await readFixtures(runtimeEnv.DB, seasonId);
+      didSync = true;
     } catch (error) {
       if (fixtures.length === 0) {
         const message = error instanceof Error ? error.message : "Okänt API-fel.";
@@ -169,6 +172,10 @@ export async function GET() {
 
       warning = "Visar senast sparade matcher. Den senaste API-kontrollen misslyckades.";
     }
+  }
+
+  if (didSync) {
+    await processRoundNotifications(runtimeEnv).catch(() => undefined);
   }
 
   return Response.json(

@@ -8,10 +8,20 @@ export type PublicMember = {
   role: "admin" | "player";
 };
 
+export type AdminMember = PublicMember & {
+  phoneNumber: string | null;
+  smsOptIn: boolean;
+};
+
 type MemberRow = {
   id: number;
   display_name: string;
   role: "admin" | "player";
+};
+
+type AdminMemberRow = MemberRow & {
+  phone_number: string | null;
+  sms_opt_in: number;
 };
 
 function bytesToHex(bytes: Uint8Array) {
@@ -134,6 +144,21 @@ export async function listMembers(db: D1Database) {
     .all<MemberRow>();
 
   return result.results.map(memberFromRow);
+}
+
+export async function listAdminMembers(db: D1Database) {
+  const result = await db
+    .prepare(
+      `SELECT id, display_name, role, phone_number, sms_opt_in
+       FROM family_members ORDER BY created_at, id`,
+    )
+    .all<AdminMemberRow>();
+
+  return result.results.map<AdminMember>((row) => ({
+    ...memberFromRow(row),
+    phoneNumber: row.phone_number,
+    smsOptIn: row.sms_opt_in === 1,
+  }));
 }
 
 export async function hasMembers(db: D1Database) {

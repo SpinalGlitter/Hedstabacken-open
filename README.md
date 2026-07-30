@@ -6,7 +6,7 @@ Familjeapp för tippning av Premier League med 1, X och 2.
 
 - Separata familjemedlemmar i gränssnittet.
 - Enkel inloggning med namn och PIN-kod.
-- Admin kan se prototypens PIN-koder och ska i den riktiga versionen kunna återställa dem.
+- Admin kan skapa användare och återställa deras PIN-koder.
 - Omgångsväljare för Premier League.
 - Tips per match med 1, X eller 2.
 - Slumpa endast tomma matcher eller slumpa hela öppna omgången.
@@ -14,12 +14,13 @@ Familjeapp för tippning av Premier League med 1, X och 2.
 - Andras tips visas först när matchen är låst.
 - Den inloggade användaren kan bara ändra sin egen rad.
 - Totalställning räknas från färdigspelade matcher.
-- Varje färdigspelad omgång ger två bonuspoäng och en omgångsvinst till den eller de deltagare som har flest rätt.
-- Fliken Omgångsvinnare visar totalpoäng, flest omgångsvinster och vinnare per färdigspelad omgång.
+- Varje match har en pott på 100 poäng som delas mellan dem som tippat rätt.
+- Den som tar flest matchpoäng i en färdigspelad omgång vinner en bonuspott på 50 poäng. Vid delad seger delas potten och avrundas nedåt.
+- Admin kan aktivera automatiska SMS med omgångsvinnare, flest rätt och totalledare.
 - Databasschema för användare, säsonger, matcher, tips och manuella korrigeringar.
 - Hela Premier League-säsongen 2026/27 hämtas från `football-data.org` och sparas i D1.
 
-Startsidan visar det riktiga spelschemat. När någon öppnar appen kontrolleras schema och resultat på nytt om den senaste synkningen är äldre än femton minuter.
+Startsidan visar det riktiga spelschemat. Resultaten kontrolleras varje timme och även när någon öppnar appen om den senaste synkningen är äldre än femton minuter.
 
 ## football-data.org
 
@@ -46,11 +47,12 @@ Gratisnivån har fördröjda resultat. Appen läser alltid från den egna databa
 
 ```bash
 FOOTBALL_DATA_API_TOKEN=din_api_nyckel
+ELKS_API_USERNAME=ditt_api_användarnamn
+ELKS_API_PASSWORD=ditt_api_lösenord
+ELKS_SMS_FROM=HedstaOpen
+APP_PUBLIC_URL=https://hedstabacken-open.jompen.chatgpt.site
 ```
 
 ## Nästa steg
 
-1. Spara användare och tips i D1-tabellerna.
-2. Flytta PIN-kontrollen till servern och låt admin återställa koder.
-3. Lägg till en schemalagd resultatsynk som komplement till synkningen vid besök.
-4. Bygg adminvy för manuella korrigeringar.
+1. Bygg adminvy för manuella resultatkorrigeringar.
