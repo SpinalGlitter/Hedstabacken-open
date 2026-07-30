@@ -75,6 +75,30 @@ test("splits the 50 point round bonus pool between shared winners", () => {
   assert.equal(competition.standings.find((member) => member.memberId === "johan")?.roundBonus, 0);
 });
 
+test("awards the round bonus to the highest match score instead of most correct picks", () => {
+  const fixtures = [
+    { id: 1, matchday: 1, status: "FINISHED", result: "1" },
+    { id: 2, matchday: 1, status: "FINISHED", result: "X" },
+    { id: 3, matchday: 1, status: "FINISHED", result: "2" },
+  ];
+  const predictions = {
+    anna: { 1: "1", 2: "X", 3: "1" },
+    erik: { 1: "1", 2: "1", 3: "2" },
+    johan: { 1: "1", 2: "X", 3: "1" },
+    max: { 1: "1", 2: "X", 3: "1" },
+  };
+
+  const competition = calculateCompetition(members, fixtures, predictions);
+
+  assert.equal(competition.standings.find((member) => member.memberId === "anna")?.correct, 2);
+  assert.equal(competition.standings.find((member) => member.memberId === "erik")?.correct, 2);
+  assert.equal(competition.standings.find((member) => member.memberId === "anna")?.matchPoints, 58);
+  assert.equal(competition.standings.find((member) => member.memberId === "erik")?.matchPoints, 125);
+  assert.deepEqual(competition.roundResults[0].winnerIds, ["erik"]);
+  assert.equal(competition.roundResults[0].maxMatchPoints, 125);
+  assert.equal(competition.standings.find((member) => member.memberId === "erik")?.roundBonus, 50);
+});
+
 test("rounds a three-way shared round bonus down to whole points", () => {
   const fixtures = [{ id: 1, matchday: 1, status: "FINISHED", result: "1" }];
   const predictions = {

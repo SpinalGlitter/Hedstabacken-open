@@ -928,7 +928,7 @@ export default function Home() {
             <div className="border-b border-[#e5eadf] px-4 py-3">
               <h2 className="text-lg font-bold">Poängtabell</h2>
               <p className="mt-1 text-sm leading-6 text-[#5b6b61]">
-                Varje match har en pott på 100 poäng som delas mellan dem som tippat rätt. Varje omgång har dessutom en bonuspott på 50 poäng som delas mellan vinnarna.
+                Varje match har en pott på 100 poäng som delas mellan dem som tippat rätt. Omgångens 50 bonuspoäng delas mellan dem som tagit flest matchpoäng i omgången.
               </p>
             </div>
             <div className="sm:hidden">

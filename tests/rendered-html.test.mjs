@@ -46,7 +46,8 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /Poängtabell/);
   assert.match(html, /100 poäng/);
   assert.match(html, /delas mellan dem som tippat rätt/);
-  assert.match(html, /bonuspott på 50 poäng/);
+  assert.match(html, /50 bonuspoäng/);
+  assert.match(html, /flest matchpoäng i omgången/);
   assert.doesNotMatch(html, /Omgångsvinnare|Bonuspoäng|Flest omgångsvinster/);
   assert.doesNotMatch(html, /Det här är fortfarande demodata|Ej körd/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
