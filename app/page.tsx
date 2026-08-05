@@ -841,7 +841,7 @@ export default function Home() {
           </div>
 
           <div className="min-w-0 overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
-            <div className="hidden grid-cols-[150px_minmax(0,1fr)_88px_120px] border-b border-[#e5eadf] bg-[#fbfcf8] px-4 py-3 text-xs font-bold uppercase text-[#66736b] sm:grid">
+            <div className="hidden grid-cols-[150px_minmax(0,1fr)_88px_120px] gap-3 border-b border-[#e5eadf] bg-[#fbfcf8] px-4 py-3 text-xs font-bold uppercase text-[#66736b] sm:grid">
               <span>Avspark</span>
               <span>Match</span>
               <span>Resultat</span>
