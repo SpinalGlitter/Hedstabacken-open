@@ -35,6 +35,34 @@ export type FootballDataMatchesResponse = {
   matches: FootballDataMatch[];
 };
 
+export type FootballDataStandingRow = {
+  position: number;
+  team: {
+    id: number;
+    name: string;
+    shortName: string;
+    tla: string;
+  };
+  playedGames: number;
+  won: number;
+  draw: number;
+  lost: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+};
+
+export type FootballDataStandingsResponse = {
+  season: {
+    currentMatchday: number | null;
+  };
+  standings: Array<{
+    type: "TOTAL" | "HOME" | "AWAY";
+    table: FootballDataStandingRow[];
+  }>;
+};
+
 export type StoredMatchStatus =
   | "SCHEDULED"
   | "LIVE"
@@ -77,6 +105,10 @@ export function shouldLockFixture(status: FootballDataMatch["status"], kickoff: 
   return status === "FINISHED" || status === "IN_PLAY" || status === "LIVE" || new Date(kickoff) <= now;
 }
 
+export function totalStandingTable(response: FootballDataStandingsResponse) {
+  return response.standings.find((standing) => standing.type === "TOTAL")?.table ?? [];
+}
+
 export async function fetchPremierLeagueMatches(seasonStartYear: number, token: string) {
   const response = await fetch(`https://api.football-data.org/v4/competitions/PL/matches?season=${seasonStartYear}`, {
     headers: {
@@ -89,4 +121,18 @@ export async function fetchPremierLeagueMatches(seasonStartYear: number, token: 
   }
 
   return (await response.json()) as FootballDataMatchesResponse;
+}
+
+export async function fetchPremierLeagueStandings(seasonStartYear: number, token: string) {
+  const response = await fetch(`https://api.football-data.org/v4/competitions/PL/standings?season=${seasonStartYear}`, {
+    headers: {
+      "X-Auth-Token": token,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`football-data.org svarade med ${response.status}`);
+  }
+
+  return (await response.json()) as FootballDataStandingsResponse;
 }

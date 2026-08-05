@@ -25,6 +25,31 @@ type FixturesResponse = {
   warning?: string;
 };
 
+type LeagueStanding = {
+  position: number;
+  team: {
+    id: number;
+    name: string;
+    shortName: string;
+    tla: string;
+  };
+  playedGames: number;
+  won: number;
+  draw: number;
+  lost: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+};
+
+type LeagueStandingsResponse = {
+  seasonLabel: string;
+  currentMatchday: number | null;
+  table: LeagueStanding[];
+  error?: string;
+};
+
 type FamilyMember = {
   id: string;
   name: string;
@@ -120,8 +145,12 @@ export default function Home() {
   const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
   const [predictionLoadError, setPredictionLoadError] = useState<string | null>(null);
   const [saveNotices, setSaveNotices] = useState<Record<number, SaveNotice>>({});
-  const [activeView, setActiveView] = useState<"predictions" | "standings">("predictions");
+  const [activeView, setActiveView] = useState<"predictions" | "standings" | "league">("predictions");
   const [selectedTipsMemberId, setSelectedTipsMemberId] = useState("");
+  const [leagueTable, setLeagueTable] = useState<LeagueStanding[]>([]);
+  const [leagueMatchday, setLeagueMatchday] = useState<number | null>(null);
+  const [leagueTableLoaded, setLeagueTableLoaded] = useState(false);
+  const [leagueTableMessage, setLeagueTableMessage] = useState("Hämtar Premier League-tabellen...");
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
   const selectedTipsMember = familyMembers.find((member) => member.id === selectedTipsMemberId) ?? null;
@@ -170,6 +199,46 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeView !== "league" || leagueTableLoaded) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadLeagueTable() {
+      setLeagueTableMessage("Hämtar Premier League-tabellen...");
+
+      try {
+        const response = await fetch("/api/standings");
+        const data = (await response.json()) as LeagueStandingsResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Premier League-tabellen kunde inte hämtas.");
+        }
+
+        if (!cancelled) {
+          setLeagueTable(data.table);
+          setLeagueMatchday(data.currentMatchday);
+          setLeagueTableLoaded(true);
+          setLeagueTableMessage(`Aktuell ställning för säsongen ${data.seasonLabel}.`);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLeagueTableMessage(
+            error instanceof Error ? error.message : "Premier League-tabellen kunde inte hämtas.",
+          );
+        }
+      }
+    }
+
+    void loadLeagueTable();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, leagueTableLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -766,20 +835,34 @@ export default function Home() {
           <div className="prediction-toolbar">
             <div className="view-tabs" aria-label="Välj vy">
               <button
+                aria-label="Tippa matcher"
                 aria-pressed={activeView === "predictions"}
                 className={`view-tab ${activeView === "predictions" ? "view-tab-active" : ""}`}
                 onClick={() => setActiveView("predictions")}
                 type="button"
               >
-                Tippa matcher
+                <span className="view-label-long">Tippa matcher</span>
+                <span className="view-label-short">Tippa</span>
               </button>
               <button
+                aria-label="Poängtabell"
                 aria-pressed={activeView === "standings"}
                 className={`view-tab ${activeView === "standings" ? "view-tab-active" : ""}`}
                 onClick={() => setActiveView("standings")}
                 type="button"
               >
-                Poängtabell
+                <span className="view-label-long">Poängtabell</span>
+                <span className="view-label-short">Poäng</span>
+              </button>
+              <button
+                aria-label="Premier League-tabell"
+                aria-pressed={activeView === "league"}
+                className={`view-tab ${activeView === "league" ? "view-tab-active" : ""}`}
+                onClick={() => setActiveView("league")}
+                type="button"
+              >
+                <span className="view-label-long">Premier League</span>
+                <span className="view-label-short">PL</span>
               </button>
             </div>
 
@@ -1262,6 +1345,60 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+          </section>
+        </div>
+
+        <div className={activeView === "league" ? "min-w-0 space-y-4 sm:space-y-5 lg:col-span-2" : "hidden"}>
+          <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#e5eadf] px-4 py-3">
+              <div>
+                <h2 className="text-lg font-bold">Premier League-tabellen</h2>
+                <p aria-live="polite" className="mt-1 text-sm text-[#5b6b61]">
+                  {leagueTableMessage}
+                </p>
+              </div>
+              <span className="rounded-md bg-[#e9f0e3] px-3 py-2 text-xs font-bold text-[#365246]">
+                {seasonLabel}{leagueMatchday ? ` · Omgång ${leagueMatchday}` : ""}
+              </span>
+            </div>
+
+            {leagueTable.length > 0 ? (
+              <table aria-label="Premier League-tabell" className="w-full table-fixed border-collapse text-sm sm:table-auto">
+                <thead>
+                  <tr className="bg-[#fbfcf8] text-[11px] font-bold uppercase text-[#66736b] sm:text-xs">
+                    <th className="w-9 px-2 py-3 text-center sm:w-auto sm:px-4">#</th>
+                    <th className="px-2 py-3 text-left sm:px-4">Lag</th>
+                    <th className="w-10 px-1 py-3 text-center sm:w-auto sm:px-4">Sp</th>
+                    <th className="hidden px-4 py-3 text-center sm:table-cell">V</th>
+                    <th className="hidden px-4 py-3 text-center sm:table-cell">O</th>
+                    <th className="hidden px-4 py-3 text-center sm:table-cell">F</th>
+                    <th className="w-12 px-1 py-3 text-center sm:w-auto sm:px-4">+/-</th>
+                    <th className="w-11 px-1 py-3 text-center sm:w-auto sm:px-4">P</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leagueTable.map((standing) => (
+                    <tr className="border-t border-[#edf1e8]" key={standing.team.id}>
+                      <td className="px-2 py-3 text-center font-bold sm:px-4">{standing.position}</td>
+                      <td className="min-w-0 px-2 py-3 font-bold sm:px-4">
+                        <span className="sm:hidden">{teamAbbreviation(standing.team.name)}</span>
+                        <span className="hidden sm:inline">{standing.team.shortName || standing.team.name}</span>
+                      </td>
+                      <td className="px-1 py-3 text-center sm:px-4">{standing.playedGames}</td>
+                      <td className="hidden px-4 py-3 text-center sm:table-cell">{standing.won}</td>
+                      <td className="hidden px-4 py-3 text-center sm:table-cell">{standing.draw}</td>
+                      <td className="hidden px-4 py-3 text-center sm:table-cell">{standing.lost}</td>
+                      <td className="px-1 py-3 text-center sm:px-4">{standing.goalDifference}</td>
+                      <td className="px-1 py-3 text-center text-base font-bold text-[#1d513d] sm:px-4">
+                        {standing.points}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="px-4 py-10 text-center text-sm font-semibold text-[#5b6b61]">{leagueTableMessage}</p>
+            )}
           </section>
         </div>
       </section>

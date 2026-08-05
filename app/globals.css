@@ -105,7 +105,7 @@ button {
 
 .view-tabs {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
   border: 1px solid #cdd8c6;
   border-radius: 6px;
@@ -149,6 +149,14 @@ button {
 .view-tab-active:hover {
   background: #1d513d;
   color: #ffffff;
+}
+
+.view-label-short {
+  display: none;
+}
+
+.view-label-long {
+  display: inline;
 }
 
 .round-tab {
@@ -309,6 +317,31 @@ button {
   color: #1c6b3f;
 }
 
+@media (max-width: 900px) {
+  .prediction-toolbar {
+    gap: 6px;
+  }
+
+  .round-random-actions {
+    gap: 4px;
+  }
+
+  .round-random-actions .control-button {
+    padding-inline: 7px;
+    font-size: 12px;
+  }
+
+  .view-label-long,
+  .random-label-long {
+    display: none;
+  }
+
+  .view-label-short,
+  .random-label-short {
+    display: inline;
+  }
+}
+
 @media (max-width: 760px) {
   .login-panel {
     grid-template-columns: 1fr;
@@ -331,24 +364,6 @@ button {
   .prediction-toolbar .view-tabs {
     flex: 1 1 auto;
   }
-
-  .round-random-actions {
-    gap: 4px;
-  }
-
-  .round-random-actions .control-button {
-    padding-inline: 7px;
-    font-size: 12px;
-  }
-
-  .random-label-long {
-    display: none;
-  }
-
-  .random-label-short {
-    display: inline;
-  }
-
 }
 
 @media (min-width: 640px) {

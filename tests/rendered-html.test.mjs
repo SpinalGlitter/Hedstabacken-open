@@ -46,6 +46,8 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /Kompakt totalställning/);
   assert.match(html, /Totalställning/);
   assert.match(html, /Poängtabell/);
+  assert.match(html, /Premier League-tabellen/);
+  assert.match(html, /aria-label="Premier League-tabell"/);
   assert.match(html, /100 poäng/);
   assert.match(html, /delas mellan dem som tippat rätt/);
   assert.match(html, /50 bonuspoäng/);
