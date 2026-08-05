@@ -36,8 +36,8 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /10\/omg\./);
   assert.match(html, /Import/);
   assert.match(html, /Laddar/);
-  assert.match(html, /Slumpa tomma/);
-  assert.match(html, /Slumpa omgången/);
+  assert.match(html, /Slumpa ej tippade matcher/);
+  assert.match(html, /Slumpa alla matcher i omgången/);
   assert.match(html, /id="matchday"/);
   assert.match(html, /Välj omgång/);
   assert.match(html, /id="tips-member"/);
