@@ -48,6 +48,11 @@ type PredictionsResponse = {
   error?: string;
 };
 
+type SaveNotice = {
+  kind: "neutral" | "dirty" | "saving" | "saved" | "error";
+  message: string;
+};
+
 const predictionOptions: Prediction[] = ["1", "X", "2"];
 
 function randomPrediction(): Prediction {
@@ -113,7 +118,8 @@ export default function Home() {
   const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
   const [selectedMatchday, setSelectedMatchday] = useState(1);
   const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
-  const [saveState, setSaveState] = useState("Logga in för att lägga dina tips.");
+  const [predictionLoadError, setPredictionLoadError] = useState<string | null>(null);
+  const [saveNotices, setSaveNotices] = useState<Record<number, SaveNotice>>({});
   const [activeView, setActiveView] = useState<"predictions" | "standings">("predictions");
   const [selectedTipsMemberId, setSelectedTipsMemberId] = useState("");
 
@@ -218,10 +224,11 @@ export default function Home() {
         const predictionBook = await fetchPredictionBook();
         if (!cancelled) {
           setPredictions(predictionBook);
+          setPredictionLoadError(null);
         }
       } catch (error) {
         if (!cancelled) {
-          setSaveState(error instanceof Error ? error.message : "Tipsen kunde inte hämtas.");
+          setPredictionLoadError(error instanceof Error ? error.message : "Tipsen kunde inte hämtas.");
         }
       }
     }
@@ -287,10 +294,41 @@ export default function Home() {
     [fixtures, selectedMatchday],
   );
 
+  const savedPredictionCount = currentMember
+    ? roundFixtures.filter((fixture) => predictions[currentMember.id]?.[fixture.id]).length
+    : 0;
+  const saveNotice = saveNotices[selectedMatchday] ?? (predictionLoadError
+    ? { kind: "error" as const, message: predictionLoadError }
+    : {
+        kind: "neutral" as const,
+        message: currentMember
+          ? savedPredictionCount > 0
+            ? `${savedPredictionCount} sparade tips visas i omgången. Ändringar måste sparas på nytt.`
+            : "Välj 1, X eller 2 och tryck sedan på Spara tips."
+          : "Logga in för att lägga dina tips.",
+      });
+  const savePanelTitle = saveNotice.kind === "dirty"
+    ? "Tipsen är inte sparade"
+    : saveNotice.kind === "saving"
+      ? "Sparar tipsen"
+      : saveNotice.kind === "saved"
+        ? "Tipsen är sparade"
+        : saveNotice.kind === "error"
+          ? "Något behöver åtgärdas"
+          : currentMember
+            ? savedPredictionCount > 0
+              ? "Sparade tips finns"
+              : "Inga tips sparade ännu"
+            : "Logga in för att tippa";
+
   const competition = useMemo(
     () => calculateCompetition(familyMembers, fixtures, predictions),
     [familyMembers, fixtures, predictions],
   );
+
+  function setSaveNotice(notice: SaveNotice, matchday = selectedMatchday) {
+    setSaveNotices((current) => ({ ...current, [matchday]: notice }));
+  }
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -313,12 +351,16 @@ export default function Home() {
       setSelectedTipsMemberId(data.member.id);
       setPin("");
       setLoginMessage(`Inloggad som ${data.member.name}.`);
-      setSaveState("Du kan bara ändra din egen rad.");
+      setSaveNotices({});
 
       try {
         setPredictions(await fetchPredictionBook());
+        setPredictionLoadError(null);
       } catch (error) {
-        setSaveState(error instanceof Error ? error.message : "Dina sparade tips kunde inte hämtas.");
+        setSaveNotice({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Dina sparade tips kunde inte hämtas.",
+        });
       }
     } catch (error) {
       setLoginMessage(
@@ -331,7 +373,7 @@ export default function Home() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setCurrentMemberId(null);
     setLoginMessage("Logga in med namn och PIN-kod.");
-    setSaveState("Logga in för att lägga dina tips.");
+    setSaveNotices({});
     setPredictions(await fetchPredictionBook().catch(() => ({})));
   }
 
@@ -359,7 +401,7 @@ export default function Home() {
       setSetupName("");
       setSetupPin("");
       setLoginMessage(`Administratören ${data.member.name} är skapad och inloggad.`);
-      setSaveState("Du kan bara ändra din egen rad.");
+      setSaveNotices({});
     } catch (error) {
       setLoginMessage(error instanceof Error ? error.message : "Administratören kunde inte skapas.");
     }
@@ -499,12 +541,12 @@ export default function Home() {
 
   function setPrediction(fixture: Fixture, prediction: Prediction) {
     if (!currentMember) {
-      setSaveState("Logga in först.");
+      setSaveNotice({ kind: "error", message: "Logga in först." });
       return;
     }
 
     if (isLocked(fixture)) {
-      setSaveState("Matchen är låst eftersom den har startat.");
+      setSaveNotice({ kind: "neutral", message: "Matchen är låst eftersom den har startat." }, fixture.matchday);
       return;
     }
 
@@ -515,12 +557,15 @@ export default function Home() {
         [fixture.id]: prediction,
       },
     }));
-    setSaveState(`Osparade ändringar för ${currentMember.name}.`);
+    setSaveNotice({
+      kind: "dirty",
+      message: `Du har ändrat ${currentMember.name}s rad. Tryck på Spara tips för att behålla ändringen.`,
+    }, fixture.matchday);
   }
 
   function randomizeRound(onlyEmpty: boolean) {
     if (!currentMember) {
-      setSaveState("Logga in först.");
+      setSaveNotice({ kind: "error", message: "Logga in först." });
       return;
     }
 
@@ -542,12 +587,17 @@ export default function Home() {
         [currentMember.id]: memberPredictions,
       };
     });
-    setSaveState(onlyEmpty ? "Tomma matcher slumpades." : "Omgångens öppna matcher slumpades.");
+    setSaveNotice({
+      kind: "dirty",
+      message: onlyEmpty
+        ? "De tomma matcherna är slumpade men ännu inte sparade."
+        : "Omgångens öppna matcher är slumpade men ännu inte sparade.",
+    });
   }
 
   async function savePredictions() {
     if (!currentMember) {
-      setSaveState("Logga in först.");
+      setSaveNotice({ kind: "error", message: "Logga in först." });
       return;
     }
 
@@ -559,11 +609,11 @@ export default function Home() {
     });
 
     if (roundPredictions.length === 0) {
-      setSaveState("Det finns inga öppna tips att spara i omgången.");
+      setSaveNotice({ kind: "neutral", message: "Det finns inga öppna tips att spara i omgången." });
       return;
     }
 
-    setSaveState("Sparar tipsen...");
+    setSaveNotice({ kind: "saving", message: "Sparar tipsen..." });
     try {
       const response = await fetch("/api/predictions", {
         method: "POST",
@@ -576,9 +626,15 @@ export default function Home() {
         throw new Error(data.error ?? "Tipsen kunde inte sparas.");
       }
 
-      setSaveState(`${data.saved ?? roundPredictions.length} tips för ${currentMember.name} är sparade.`);
+      setSaveNotice({
+        kind: "saved",
+        message: `${data.saved ?? roundPredictions.length} tips för ${currentMember.name} är sparade. Du kan ändra dem fram till respektive matchstart.`,
+      });
     } catch (error) {
-      setSaveState(error instanceof Error ? error.message : "Tipsen kunde inte sparas.");
+      setSaveNotice({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Tipsen kunde inte sparas.",
+      });
     }
   }
 
@@ -707,9 +763,6 @@ export default function Home() {
               <button className="control-button" onClick={() => randomizeRound(false)} type="button">
                 Slumpa omgången
               </button>
-              <button className="primary-button" onClick={savePredictions} type="button">
-                Spara tips
-              </button>
             </div>
           </div>
 
@@ -831,11 +884,24 @@ export default function Home() {
                 </article>
               );
             })}
-          </div>
 
-          <p className="rounded-md border border-[#d8e1d0] bg-white px-4 py-3 text-sm font-medium text-[#45564b]">
-            {saveState}
-          </p>
+            <div className={`save-panel save-panel-${saveNotice.kind}`} role="status" aria-live="polite">
+              <div className="min-w-0">
+                <p className="save-panel-title">
+                  {savePanelTitle}
+                </p>
+                <p className="mt-1 text-sm leading-5">{saveNotice.message}</p>
+              </div>
+              <button
+                className="primary-button save-predictions-button"
+                disabled={!currentMember || saveNotice.kind === "saving"}
+                onClick={savePredictions}
+                type="button"
+              >
+                {saveNotice.kind === "saving" ? "Sparar..." : "Spara tips"}
+              </button>
+            </div>
+          </div>
 
           <section className="min-w-0 rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">

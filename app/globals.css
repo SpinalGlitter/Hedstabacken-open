@@ -174,8 +174,57 @@ button {
   gap: 8px;
 }
 
-.mobile-actions .primary-button {
-  grid-column: 1 / -1;
+.save-panel {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #d9e0d5;
+  background: #f8faf6;
+  padding: 16px;
+  color: #45564b;
+}
+
+.save-panel-title {
+  color: #24362c;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.save-panel-dirty {
+  border-top-color: #d6a63c;
+  background: #fff8e7;
+  color: #725718;
+}
+
+.save-panel-dirty .save-panel-title {
+  color: #684d0d;
+}
+
+.save-panel-saving {
+  background: #f2f5ef;
+}
+
+.save-panel-saved {
+  border-top-color: #5e9a70;
+  background: #eef8ef;
+  color: #356044;
+}
+
+.save-panel-saved .save-panel-title {
+  color: #245137;
+}
+
+.save-panel-error {
+  border-top-color: #b45d55;
+  background: #fff1ef;
+  color: #7b342e;
+}
+
+.save-panel-error .save-panel-title {
+  color: #702e29;
+}
+
+.save-predictions-button {
+  width: 100%;
 }
 
 .mobile-table-scroll {
@@ -238,6 +287,16 @@ button {
 }
 
 @media (min-width: 640px) {
+  .save-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .save-predictions-button {
+    min-width: 150px;
+    width: auto;
+  }
+
   .prediction-button {
     width: 36px;
     height: 36px;
@@ -248,7 +307,4 @@ button {
     flex-wrap: wrap;
   }
 
-  .mobile-actions .primary-button {
-    grid-column: auto;
-  }
 }
