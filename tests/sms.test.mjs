@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeSwedishMobile } from "../lib/sms.ts";
+import { estimateSmsParts, normalizeSwedishMobile } from "../lib/sms.ts";
+import { validateCustomSms } from "../lib/custom-sms-input.ts";
 import { buildRoundSms } from "../lib/sms-summary.ts";
 
 test("normalizes Swedish mobile numbers to E.164", () => {
@@ -10,6 +11,32 @@ test("normalizes Swedish mobile numbers to E.164", () => {
   assert.equal(normalizeSwedishMobile("+46 70 123 45 67"), "+46701234567");
   assert.equal(normalizeSwedishMobile(""), null);
   assert.throws(() => normalizeSwedishMobile("08-123 45 67"), /svenskt nummer/);
+});
+
+test("estimates GSM and Unicode SMS parts", () => {
+  assert.equal(estimateSmsParts("Hej familjen!"), 1);
+  assert.equal(estimateSmsParts("a".repeat(160)), 1);
+  assert.equal(estimateSmsParts("a".repeat(161)), 2);
+  assert.equal(estimateSmsParts("⚽".repeat(71)), 2);
+});
+
+test("validates and deduplicates a custom SMS request", () => {
+  const requestId = "123e4567-e89b-12d3-a456-426614174000";
+  assert.deepEqual(
+    validateCustomSms({ message: "  Hej familjen!  ", recipientIds: [2, "2", 3], requestId }),
+    { message: "Hej familjen!", recipientIds: [2, 3], requestId },
+  );
+  assert.throws(() => validateCustomSms({ message: "", recipientIds: [2], requestId }), /mellan 1 och 480/);
+  assert.throws(() => validateCustomSms({ message: "Hej", recipientIds: [], requestId }), /minst en/);
+  assert.throws(() => validateCustomSms({ message: "Hej", recipientIds: [2], requestId: "nope" }), /ID/);
+});
+
+test("keeps the custom SMS route admin-only", async () => {
+  const route = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../app/api/custom-sms/route.ts", import.meta.url), "utf8"),
+  );
+
+  assert.match(route, /requireAdmin\(db, request\)/);
 });
 
 test("builds a concise round summary with winners and most correct picks", () => {

@@ -11,6 +11,31 @@ export type SmsSendResult = {
   cost?: number;
 };
 
+const GSM_BASIC_CHARACTERS = new Set(
+  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà".split(""),
+);
+const GSM_EXTENDED_CHARACTERS = new Set("^{}\\[~]|€".split(""));
+
+export function estimateSmsParts(message: string) {
+  if (!message) {
+    return 0;
+  }
+
+  let gsmUnits = 0;
+  for (const character of message) {
+    if (GSM_BASIC_CHARACTERS.has(character)) {
+      gsmUnits += 1;
+    } else if (GSM_EXTENDED_CHARACTERS.has(character)) {
+      gsmUnits += 2;
+    } else {
+      const unicodeUnits = message.length;
+      return unicodeUnits <= 70 ? 1 : Math.ceil(unicodeUnits / 67);
+    }
+  }
+
+  return gsmUnits <= 160 ? 1 : Math.ceil(gsmUnits / 153);
+}
+
 export function normalizeSwedishMobile(value: unknown) {
   if (typeof value !== "string" || value.trim() === "") {
     return null;

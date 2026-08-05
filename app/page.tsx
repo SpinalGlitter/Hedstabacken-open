@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { calculateCompetition, type ScoringPredictionBook } from "@/lib/scoring";
+import { estimateSmsParts } from "@/lib/sms";
 import { submissionProgress } from "@/lib/submission-status";
 import { teamAbbreviation } from "@/lib/teams";
 
@@ -60,6 +61,16 @@ type FamilyMember = {
 type AdminMember = FamilyMember & {
   phoneNumber: string | null;
   smsOptIn: boolean;
+};
+
+type CustomSmsHistoryEntry = {
+  id: number;
+  message: string;
+  status: string;
+  recipients: number;
+  sent: number;
+  failed: number;
+  createdAt: string;
 };
 
 type FamilyResponse = {
@@ -122,6 +133,16 @@ function statusLabel(status: MatchStatus) {
   return labels[status];
 }
 
+function formatSmsTimestamp(value: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 async function fetchPredictionBook() {
   const response = await fetch("/api/predictions", { cache: "no-store" });
   const data = (await response.json()) as PredictionsResponse;
@@ -150,6 +171,12 @@ export default function Home() {
   const [smsMembers, setSmsMembers] = useState<AdminMember[]>([]);
   const [smsConfigured, setSmsConfigured] = useState(false);
   const [smsMessage, setSmsMessage] = useState("Laddar SMS-inställningar...");
+  const [customSmsText, setCustomSmsText] = useState("");
+  const [customSmsRecipientIds, setCustomSmsRecipientIds] = useState<string[]>([]);
+  const [customSmsRequestId, setCustomSmsRequestId] = useState("");
+  const [customSmsSending, setCustomSmsSending] = useState(false);
+  const [customSmsFeedback, setCustomSmsFeedback] = useState("Skriv ett meddelande och välj mottagare.");
+  const [customSmsHistory, setCustomSmsHistory] = useState<CustomSmsHistoryEntry[]>([]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [seasonLabel, setSeasonLabel] = useState("2026/27");
   const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
@@ -170,6 +197,13 @@ export default function Home() {
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
   const selectedTipsMember = familyMembers.find((member) => member.id === selectedTipsMemberId) ?? null;
+  const eligibleSmsMembers = useMemo(
+    () => smsMembers.filter((member) => member.smsOptIn && member.phoneNumber),
+    [smsMembers],
+  );
+  const customSmsParts = estimateSmsParts(customSmsText.trim());
+  const allSmsRecipientsSelected =
+    eligibleSmsMembers.length > 0 && eligibleSmsMembers.every((member) => customSmsRecipientIds.includes(member.id));
 
   useEffect(() => {
     let cancelled = false;
@@ -309,12 +343,14 @@ export default function Home() {
       }
 
       try {
-        const [membersResponse, statusResponse] = await Promise.all([
+        const [membersResponse, statusResponse, historyResponse] = await Promise.all([
           fetch("/api/members", { cache: "no-store" }),
           fetch("/api/notifications", { cache: "no-store" }),
+          fetch("/api/custom-sms", { cache: "no-store" }),
         ]);
         const membersData = (await membersResponse.json()) as { members?: AdminMember[]; error?: string };
         const statusData = (await statusResponse.json()) as { configured?: boolean; error?: string };
+        const historyData = (await historyResponse.json()) as { history?: CustomSmsHistoryEntry[]; error?: string };
 
         if (!membersResponse.ok || !membersData.members) {
           throw new Error(membersData.error ?? "Mobilnumren kunde inte hämtas.");
@@ -322,9 +358,18 @@ export default function Home() {
         if (!statusResponse.ok) {
           throw new Error(statusData.error ?? "SMS-status kunde inte hämtas.");
         }
+        if (!historyResponse.ok) {
+          throw new Error(historyData.error ?? "SMS-historiken kunde inte hämtas.");
+        }
         if (!cancelled) {
           setSmsMembers(membersData.members);
           setSmsConfigured(statusData.configured === true);
+          setCustomSmsHistory(historyData.history ?? []);
+          setCustomSmsRecipientIds(
+            membersData.members
+              .filter((member) => member.smsOptIn && member.phoneNumber)
+              .map((member) => member.id),
+          );
           setSmsMessage(
             statusData.configured
               ? "SMS-tjänsten är ansluten. Testa varje nummer innan första omgången."
@@ -613,6 +658,13 @@ export default function Home() {
       }
 
       updateSmsMember(member.id, data.member);
+      setCustomSmsRecipientIds((current) =>
+        data.member?.smsOptIn && data.member.phoneNumber
+          ? current.includes(member.id)
+            ? current
+            : [...current, member.id]
+          : current.filter((memberId) => memberId !== member.id),
+      );
       setSmsMessage(`SMS-inställningarna för ${member.name} är sparade.`);
     } catch (error) {
       setSmsMessage(error instanceof Error ? error.message : "SMS-inställningen kunde inte sparas.");
@@ -665,6 +717,73 @@ export default function Home() {
       );
     } catch (error) {
       setSmsMessage(error instanceof Error ? error.message : "Omgångarna kunde inte kontrolleras.");
+    }
+  }
+
+  function toggleCustomSmsRecipient(memberId: string) {
+    setCustomSmsRequestId("");
+    setCustomSmsRecipientIds((current) =>
+      current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
+    );
+  }
+
+  function toggleAllCustomSmsRecipients() {
+    setCustomSmsRequestId("");
+    setCustomSmsRecipientIds(allSmsRecipientsSelected ? [] : eligibleSmsMembers.map((member) => member.id));
+  }
+
+  async function sendCustomSmsMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const message = customSmsText.trim();
+    const selectedRecipients = eligibleSmsMembers.filter((member) => customSmsRecipientIds.includes(member.id));
+
+    if (!message || selectedRecipients.length === 0) {
+      setCustomSmsFeedback("Skriv ett meddelande och välj minst en mottagare.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Skicka meddelandet till ${selectedRecipients.length} mottagare?\n\n${message}`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const requestId = customSmsRequestId || crypto.randomUUID();
+    setCustomSmsRequestId(requestId);
+    setCustomSmsSending(true);
+    setCustomSmsFeedback("Skickar SMS...");
+
+    try {
+      const response = await fetch("/api/custom-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          recipientIds: selectedRecipients.map((member) => member.id),
+          requestId,
+        }),
+      });
+      const data = (await response.json()) as { sent?: number; failed?: number; error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "SMS-utskicket misslyckades.");
+      }
+
+      setCustomSmsFeedback(
+        `${data.sent ?? 0} SMS skickades${data.failed ? `, ${data.failed} misslyckades` : ""}.`,
+      );
+      setCustomSmsText("");
+      setCustomSmsRequestId("");
+
+      const historyResponse = await fetch("/api/custom-sms", { cache: "no-store" });
+      const historyData = (await historyResponse.json()) as { history?: CustomSmsHistoryEntry[] };
+      if (historyResponse.ok) {
+        setCustomSmsHistory(historyData.history ?? []);
+      }
+    } catch (error) {
+      setCustomSmsFeedback(error instanceof Error ? error.message : "SMS-utskicket misslyckades.");
+    } finally {
+      setCustomSmsSending(false);
     }
   }
 
@@ -1370,6 +1489,120 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
+
+                  <form className="mt-5 space-y-4 border-t border-[#e5eadf] pt-5" onSubmit={sendCustomSmsMessage}>
+                    <div>
+                      <h3 className="font-bold text-[#24362c]">Skicka eget SMS</h3>
+                      <p className="mt-1 text-xs leading-5 text-[#66736b]">Välj mottagare och skriv meddelandet.</p>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="field-label">Mottagare</span>
+                        <label className="flex items-center gap-2 text-xs font-bold text-[#43544a]">
+                          <input
+                            checked={allSmsRecipientsSelected}
+                            className="h-5 w-5 accent-[#1d513d]"
+                            disabled={eligibleSmsMembers.length === 0}
+                            onChange={toggleAllCustomSmsRecipients}
+                            type="checkbox"
+                          />
+                          Välj alla
+                        </label>
+                      </div>
+
+                      {eligibleSmsMembers.length > 0 ? (
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {eligibleSmsMembers.map((member) => (
+                            <label
+                              className="flex min-w-0 items-center gap-2 rounded-md bg-[#f5f7f2] px-3 py-2 font-semibold text-[#24362c]"
+                              key={member.id}
+                            >
+                              <input
+                                checked={customSmsRecipientIds.includes(member.id)}
+                                className="h-5 w-5 shrink-0 accent-[#1d513d]"
+                                onChange={() => toggleCustomSmsRecipient(member.id)}
+                                type="checkbox"
+                              />
+                              <span className="truncate">{member.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs font-semibold text-[#7b342e]">
+                          Ingen deltagare har både mobilnummer och aktiverat SMS.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="field-label" htmlFor="custom-sms-message">
+                        Meddelande
+                      </label>
+                      <textarea
+                        className="field-input message-input mt-1"
+                        id="custom-sms-message"
+                        maxLength={480}
+                        onChange={(event) => {
+                          setCustomSmsText(event.target.value);
+                          setCustomSmsRequestId("");
+                        }}
+                        placeholder="Hej! Glöm inte att lämna in tipsen för nästa omgång. /Jompen"
+                        rows={5}
+                        value={customSmsText}
+                      />
+                      <div className="mt-1 flex items-center justify-between gap-3 text-xs font-semibold text-[#66736b]">
+                        <span>{customSmsText.length}/480 tecken</span>
+                        <span>{customSmsParts} {customSmsParts === 1 ? "SMS-del" : "SMS-delar"} per mottagare</span>
+                      </div>
+                    </div>
+
+                    <button
+                      className="primary-button w-full justify-center"
+                      disabled={
+                        !smsConfigured ||
+                        customSmsSending ||
+                        !customSmsText.trim() ||
+                        customSmsRecipientIds.length === 0
+                      }
+                      type="submit"
+                    >
+                      {customSmsSending ? "Skickar..." : "Granska och skicka"}
+                    </button>
+                    <p aria-live="polite" className="font-semibold text-[#43544a]">
+                      {customSmsFeedback}
+                    </p>
+                  </form>
+
+                  {customSmsHistory.length > 0 ? (
+                    <div className="mt-5 border-t border-[#e5eadf] pt-5">
+                      <h3 className="font-bold text-[#24362c]">Senaste egna utskick</h3>
+                      <ul className="mt-2 divide-y divide-[#e5eadf] border-y border-[#e5eadf]">
+                        {customSmsHistory.map((entry) => {
+                          const status = entry.status === "sent"
+                            ? "Skickat"
+                            : entry.status === "partial"
+                              ? "Delvis skickat"
+                              : entry.status === "processing"
+                                ? "Skickar"
+                                : "Väntar";
+
+                          return (
+                            <li className="py-3" key={entry.id}>
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="min-w-0 truncate font-semibold text-[#24362c]">{entry.message}</p>
+                                <span className="shrink-0 text-xs font-bold text-[#52635a]">{status}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-[#66736b]">
+                                {formatSmsTimestamp(entry.createdAt)} · {entry.sent}/{entry.recipients} skickade
+                                {entry.failed ? ` · ${entry.failed} misslyckades` : ""}
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   <p aria-live="polite" className="mt-3 font-semibold text-[#43544a]">
                     {smsMessage}

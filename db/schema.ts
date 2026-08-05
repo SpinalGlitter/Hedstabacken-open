@@ -149,3 +149,55 @@ export const smsDeliveries = sqliteTable(
     index("sms_deliveries_notification_idx").on(table.notificationId),
   ],
 );
+
+export const customSmsMessages = sqliteTable(
+  "custom_sms_messages",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    requestKey: text("request_key").notNull(),
+    adminMemberId: integer("admin_member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["pending", "processing", "sent", "partial"] })
+      .notNull()
+      .default("pending"),
+    recipientCount: integer("recipient_count").notNull().default(0),
+    sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("custom_sms_messages_request_key_idx").on(table.requestKey),
+    index("custom_sms_messages_admin_idx").on(table.adminMemberId, table.createdAt),
+  ],
+);
+
+export const customSmsDeliveries = sqliteTable(
+  "custom_sms_deliveries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    messageId: integer("message_id")
+      .notNull()
+      .references(() => customSmsMessages.id, { onDelete: "cascade" }),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    phoneNumber: text("phone_number").notNull(),
+    status: text("status", { enum: ["pending", "sent", "failed"] })
+      .notNull()
+      .default("pending"),
+    providerMessageId: text("provider_message_id"),
+    parts: integer("parts"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("custom_sms_deliveries_message_member_idx").on(table.messageId, table.memberId),
+    index("custom_sms_deliveries_message_idx").on(table.messageId),
+  ],
+);
