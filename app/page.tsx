@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { calculateCompetition, type ScoringPredictionBook } from "@/lib/scoring";
+import { submissionProgress } from "@/lib/submission-status";
 import { teamAbbreviation } from "@/lib/teams";
 
 type Prediction = "1" | "X" | "2";
@@ -70,6 +71,17 @@ type FamilyResponse = {
 
 type PredictionsResponse = {
   predictions: ScoringPredictionBook;
+  error?: string;
+};
+
+type SubmissionStatusResponse = {
+  matchday: number;
+  totalFixtures: number;
+  members: Array<{
+    id: string;
+    name: string;
+    savedCount: number;
+  }>;
   error?: string;
 };
 
@@ -151,6 +163,10 @@ export default function Home() {
   const [leagueMatchday, setLeagueMatchday] = useState<number | null>(null);
   const [leagueTableLoaded, setLeagueTableLoaded] = useState(false);
   const [leagueTableMessage, setLeagueTableMessage] = useState("Hämtar Premier League-tabellen...");
+  const [submissionStatuses, setSubmissionStatuses] = useState<SubmissionStatusResponse["members"]>([]);
+  const [submissionStatusTotal, setSubmissionStatusTotal] = useState(0);
+  const [submissionStatusMessage, setSubmissionStatusMessage] = useState("Hämtar inlämningsstatus...");
+  const [submissionStatusRefresh, setSubmissionStatusRefresh] = useState(0);
 
   const currentMember = familyMembers.find((member) => member.id === currentMemberId) ?? null;
   const selectedTipsMember = familyMembers.find((member) => member.id === selectedTipsMemberId) ?? null;
@@ -239,6 +255,49 @@ export default function Home() {
       cancelled = true;
     };
   }, [activeView, leagueTableLoaded]);
+
+  useEffect(() => {
+    if (currentMember?.role !== "admin") {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSubmissionStatuses() {
+      setSubmissionStatusMessage("Hämtar inlämningsstatus...");
+
+      try {
+        const response = await fetch(`/api/submission-status?matchday=${selectedMatchday}`, { cache: "no-store" });
+        const data = (await response.json()) as SubmissionStatusResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Inlämningsstatus kunde inte hämtas.");
+        }
+
+        if (!cancelled) {
+          setSubmissionStatuses(data.members);
+          setSubmissionStatusTotal(data.totalFixtures);
+          setSubmissionStatusMessage(
+            data.totalFixtures > 0 ? "Visar endast antal sparade tips." : "Det finns inga matcher i omgången.",
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSubmissionStatuses([]);
+          setSubmissionStatusTotal(0);
+          setSubmissionStatusMessage(
+            error instanceof Error ? error.message : "Inlämningsstatus kunde inte hämtas.",
+          );
+        }
+      }
+    }
+
+    void loadSubmissionStatuses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMember?.role, selectedMatchday, submissionStatusRefresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -496,6 +555,7 @@ export default function Home() {
       setNewMemberName("");
       setNewMemberPin("");
       setAdminMessage(`${data.member.name} är tillagd och kan nu logga in.`);
+      setSubmissionStatusRefresh((value) => value + 1);
     } catch (error) {
       setAdminMessage(error instanceof Error ? error.message : "Användaren kunde inte skapas.");
     }
@@ -699,6 +759,9 @@ export default function Home() {
         kind: "saved",
         message: `${data.saved ?? roundPredictions.length} tips för ${currentMember.name} är sparade. Du kan ändra dem fram till respektive matchstart.`,
       });
+      if (currentMember.role === "admin") {
+        setSubmissionStatusRefresh((value) => value + 1);
+      }
     } catch (error) {
       setSaveNotice({
         kind: "error",
@@ -1121,6 +1184,51 @@ export default function Home() {
               ))}
             </ol>
           </section>
+
+          {currentMember?.role === "admin" ? (
+            <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-[#e5eadf] px-4 py-3">
+                <div>
+                  <h2 className="text-lg font-bold">Inlämnade tips</h2>
+                  <p className="mt-1 text-xs font-semibold text-[#66736b]">Omgång {selectedMatchday}</p>
+                </div>
+                <button
+                  className="control-button"
+                  onClick={() => setSubmissionStatusRefresh((value) => value + 1)}
+                  type="button"
+                >
+                  Uppdatera
+                </button>
+              </div>
+              <ul className="divide-y divide-[#edf1e8]">
+                {submissionStatuses.map((member) => {
+                  const progress = submissionProgress(member.savedCount, submissionStatusTotal);
+                  const label = submissionStatusTotal === 0
+                    ? "Väntar"
+                    : progress === "complete"
+                      ? "Klar"
+                      : progress === "partial"
+                        ? "Påbörjad"
+                        : "Ej tippat";
+
+                  return (
+                    <li className="flex items-center justify-between gap-3 px-4 py-3" key={member.id}>
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-[#24362c]">{member.name}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-[#66736b]">
+                          {submissionStatusTotal > 0 ? `${member.savedCount}/${submissionStatusTotal} matcher sparade` : "Inväntar matcher"}
+                        </p>
+                      </div>
+                      <span className={`submission-status-badge submission-status-${progress}`}>{label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p aria-live="polite" className="border-t border-[#e5eadf] px-4 py-3 text-xs font-semibold text-[#66736b]">
+                {submissionStatusMessage}
+              </p>
+            </section>
+          ) : null}
 
           {currentMember?.role === "admin" ? (
             <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">

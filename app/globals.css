@@ -317,6 +317,33 @@ button {
   color: #1c6b3f;
 }
 
+.submission-status-badge {
+  display: inline-grid;
+  min-width: 76px;
+  min-height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.submission-status-complete {
+  background: #dcefd9;
+  color: #1c6b3f;
+}
+
+.submission-status-partial {
+  background: #fff0c7;
+  color: #725718;
+}
+
+.submission-status-empty {
+  background: #f5e2df;
+  color: #7b342e;
+}
+
 @media (max-width: 900px) {
   .prediction-toolbar {
     gap: 6px;
