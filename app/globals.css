@@ -113,6 +113,23 @@ button {
   padding: 3px;
 }
 
+.prediction-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.prediction-toolbar .view-tabs {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.prediction-toolbar .view-tab {
+  min-width: 0;
+}
+
 .view-tab {
   min-height: 38px;
   border: 0;
@@ -168,10 +185,32 @@ button {
   font-weight: 900;
 }
 
-.mobile-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.round-random-actions {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: stretch;
   gap: 8px;
+  margin-left: auto;
+}
+
+.round-random-actions .control-button {
+  min-height: 44px;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.random-label-short {
+  display: none;
+}
+
+.random-label-long {
+  display: inline;
+}
+
+.round-random-actions.hidden {
+  display: none;
 }
 
 .save-panel {
@@ -281,7 +320,33 @@ button {
 
   .view-tab {
     min-width: 0;
-    padding: 0 8px;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+
+  .prediction-toolbar {
+    gap: 6px;
+  }
+
+  .prediction-toolbar .view-tabs {
+    flex: 1 1 auto;
+  }
+
+  .round-random-actions {
+    gap: 4px;
+  }
+
+  .round-random-actions .control-button {
+    padding-inline: 7px;
+    font-size: 12px;
+  }
+
+  .random-label-long {
+    display: none;
+  }
+
+  .random-label-short {
+    display: inline;
   }
 
 }
@@ -300,11 +365,6 @@ button {
   .prediction-button {
     width: 36px;
     height: 36px;
-  }
-
-  .mobile-actions {
-    display: flex;
-    flex-wrap: wrap;
   }
 
 }

@@ -755,15 +755,6 @@ export default function Home() {
                 </button>
               </form>
             )}
-
-            <div className="mobile-actions">
-              <button className="control-button" onClick={() => randomizeRound(true)} type="button">
-                Slumpa ej tippade matcher
-              </button>
-              <button className="control-button" onClick={() => randomizeRound(false)} type="button">
-                Slumpa alla matcher i omgången
-              </button>
-            </div>
           </div>
 
           <p className="text-sm font-semibold text-[#43544a]">{loginMessage}</p>
@@ -772,23 +763,48 @@ export default function Home() {
 
       <section className="page-grid mx-auto grid w-full max-w-7xl gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
         <div className="min-w-0 lg:col-span-2">
-          <div className="view-tabs" aria-label="Välj vy">
-            <button
-              aria-pressed={activeView === "predictions"}
-              className={`view-tab ${activeView === "predictions" ? "view-tab-active" : ""}`}
-              onClick={() => setActiveView("predictions")}
-              type="button"
-            >
-              Tippa matcher
-            </button>
-            <button
-              aria-pressed={activeView === "standings"}
-              className={`view-tab ${activeView === "standings" ? "view-tab-active" : ""}`}
-              onClick={() => setActiveView("standings")}
-              type="button"
-            >
-              Poängtabell
-            </button>
+          <div className="prediction-toolbar">
+            <div className="view-tabs" aria-label="Välj vy">
+              <button
+                aria-pressed={activeView === "predictions"}
+                className={`view-tab ${activeView === "predictions" ? "view-tab-active" : ""}`}
+                onClick={() => setActiveView("predictions")}
+                type="button"
+              >
+                Tippa matcher
+              </button>
+              <button
+                aria-pressed={activeView === "standings"}
+                className={`view-tab ${activeView === "standings" ? "view-tab-active" : ""}`}
+                onClick={() => setActiveView("standings")}
+                type="button"
+              >
+                Poängtabell
+              </button>
+            </div>
+
+            <div className={activeView === "predictions" ? "round-random-actions" : "hidden"}>
+              <button
+                aria-label="Slumpa ej tippade matcher"
+                className="control-button"
+                onClick={() => randomizeRound(true)}
+                title="Slumpa ej tippade matcher"
+                type="button"
+              >
+                <span className="random-label-long">Slumpa ej tippade matcher</span>
+                <span className="random-label-short">Slumpa tomma</span>
+              </button>
+              <button
+                aria-label="Slumpa alla matcher i omgången"
+                className="control-button"
+                onClick={() => randomizeRound(false)}
+                title="Slumpa alla matcher i omgången"
+                type="button"
+              >
+                <span className="random-label-long">Slumpa alla matcher i omgången</span>
+                <span className="random-label-short">Slumpa alla</span>
+              </button>
+            </div>
           </div>
         </div>
 
