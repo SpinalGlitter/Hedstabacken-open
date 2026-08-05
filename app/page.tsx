@@ -758,10 +758,10 @@ export default function Home() {
 
             <div className="mobile-actions">
               <button className="control-button" onClick={() => randomizeRound(true)} type="button">
-                Slumpa tomma
+                Slumpa ej tippade matcher
               </button>
               <button className="control-button" onClick={() => randomizeRound(false)} type="button">
-                Slumpa omgången
+                Slumpa alla matcher i omgången
               </button>
             </div>
           </div>
