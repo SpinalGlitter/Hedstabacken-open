@@ -184,7 +184,7 @@ export default function Home() {
   const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
   const [predictionLoadError, setPredictionLoadError] = useState<string | null>(null);
   const [saveNotices, setSaveNotices] = useState<Record<number, SaveNotice>>({});
-  const [activeView, setActiveView] = useState<"predictions" | "standings" | "league">("predictions");
+  const [activeView, setActiveView] = useState<"predictions" | "standings" | "league" | "rules">("predictions");
   const [selectedTipsMemberId, setSelectedTipsMemberId] = useState("");
   const [leagueTable, setLeagueTable] = useState<LeagueStanding[]>([]);
   const [leagueMatchday, setLeagueMatchday] = useState<number | null>(null);
@@ -1046,6 +1046,15 @@ export default function Home() {
                 <span className="view-label-long">Premier League</span>
                 <span className="view-label-short">PL</span>
               </button>
+              <button
+                aria-label="Regler"
+                aria-pressed={activeView === "rules"}
+                className={`view-tab ${activeView === "rules" ? "view-tab-active" : ""}`}
+                onClick={() => setActiveView("rules")}
+                type="button"
+              >
+                Regler
+              </button>
             </div>
 
             <div className={activeView === "predictions" ? "round-random-actions" : "hidden"}>
@@ -1740,6 +1749,69 @@ export default function Home() {
             ) : (
               <p className="px-4 py-10 text-center text-sm font-semibold text-[#5b6b61]">{leagueTableMessage}</p>
             )}
+          </section>
+        </div>
+
+        <div className={activeView === "rules" ? "min-w-0 space-y-4 sm:space-y-5 lg:col-span-2" : "hidden"}>
+          <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
+            <div className="border-b border-[#e5eadf] px-4 py-4 sm:px-6">
+              <h2 className="text-xl font-bold">Regler för Hedstabacken Open</h2>
+              <p className="mt-1 text-sm leading-6 text-[#5b6b61]">
+                Tippa 1, X eller 2 och samla poäng på både säkra resultat och oväntade skrällar.
+              </p>
+            </div>
+
+            <div className="divide-y divide-[#e5eadf]">
+              <section className="px-4 py-5 sm:px-6">
+                <h3 className="text-base font-bold">Tippa matcherna</h3>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-[#43544a]">
+                  <li><strong>1</strong> betyder hemmaseger, <strong>X</strong> oavgjort och <strong>2</strong> bortaseger.</li>
+                  <li>Du kan bara tippa och ändra din egen rad.</li>
+                  <li>Varje match låses separat vid avspark. Tips på matcher som inte har startat kan fortfarande ändras.</li>
+                  <li>Du kan slumpa tomma tips eller hela den öppna delen av omgången innan du sparar.</li>
+                </ul>
+              </section>
+
+              <section className="px-4 py-5 sm:px-6">
+                <h3 className="text-base font-bold">Matchpoäng</h3>
+                <p className="mt-3 text-sm leading-6 text-[#43544a]">
+                  Varje match har en pott på <strong>100 poäng</strong>. Potten delas lika mellan alla som tippat rätt,
+                  avrundat nedåt till hela poäng. Den som är ensam om rätt resultat får alltså hela potten.
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#d9e0d5] bg-[#d9e0d5] text-center text-sm sm:grid-cols-4">
+                  {[
+                    ["1 rätt", "100 poäng"],
+                    ["2 rätt", "50 poäng var"],
+                    ["3 rätt", "33 poäng var"],
+                    ["4 rätt", "25 poäng var"],
+                  ].map(([label, points]) => (
+                    <div className="bg-[#fbfcf8] px-3 py-3" key={label}>
+                      <p className="font-bold text-[#24362c]">{label}</p>
+                      <p className="mt-1 text-[#5b6b61]">{points}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="px-4 py-5 sm:px-6">
+                <h3 className="text-base font-bold">Omgångsvinst och bonus</h3>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-[#43544a]">
+                  <li>Omgångsvinnaren är den som tagit flest <strong>matchpoäng</strong> under omgången, inte nödvändigtvis den som haft flest rätt.</li>
+                  <li>Omgångens bonuspott är <strong>50 poäng</strong>. Vid delad seger delas bonusen lika och avrundas nedåt, till exempel 25 poäng var för två vinnare eller 16 poäng var för tre.</li>
+                  <li>För att kunna vinna en omgång behöver du ha tippat samtliga matcher i den.</li>
+                  <li>Bonusen delas ut först när alla matcher i omgången är färdigspelade. En uppskjuten match gör att omgången förblir öppen.</li>
+                </ul>
+              </section>
+
+              <section className="px-4 py-5 sm:px-6">
+                <h3 className="text-base font-bold">Synliga tips och totalställning</h3>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-[#43544a]">
+                  <li>Dina egna tips är alltid synliga för dig. Övriga deltagares tips blir synliga när respektive match har startat.</li>
+                  <li>Totalpoängen är summan av alla matchpoäng och omgångsbonusar.</li>
+                  <li>Antal rätt och antal omgångsvinster visas också, men tabellen avgörs i första hand av totalpoängen.</li>
+                </ul>
+              </section>
+            </div>
           </section>
         </div>
       </section>

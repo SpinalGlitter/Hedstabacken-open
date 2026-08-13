@@ -48,11 +48,15 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /Poängtabell/);
   assert.match(html, /Premier League-tabellen/);
   assert.match(html, /aria-label="Premier League-tabell"/);
+  assert.match(html, /Regler för Hedstabacken Open/);
+  assert.match(html, /Varje match låses separat vid avspark/);
+  assert.match(html, /För att kunna vinna en omgång behöver du ha tippat samtliga matcher/);
+  assert.match(html, /Övriga deltagares tips blir synliga när respektive match har startat/);
   assert.match(html, /100 poäng/);
   assert.match(html, /delas mellan dem som tippat rätt/);
   assert.match(html, /50 bonuspoäng/);
   assert.match(html, /flest matchpoäng i omgången/);
-  assert.doesNotMatch(html, /Omgångsvinnare|Bonuspoäng|Flest omgångsvinster/);
+  assert.doesNotMatch(html, />Omgångsvinnare<|>Bonuspoäng<|Flest omgångsvinster/);
   assert.doesNotMatch(html, /Det här är fortfarande demodata|Ej körd/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/);
 });
