@@ -1775,15 +1775,15 @@ export default function Home() {
               <section className="px-4 py-5 sm:px-6">
                 <h3 className="text-base font-bold">Matchpoäng</h3>
                 <p className="mt-3 text-sm leading-6 text-[#43544a]">
-                  Varje match har en pott på <strong>100 poäng</strong>. Potten delas lika mellan alla som tippat rätt,
-                  avrundat nedåt till hela poäng. Den som är ensam om rätt resultat får alltså hela potten.
+                  Varje match har en pott på <strong>100 poäng</strong>. Antalet personer som tippat rätt på just den
+                  matchen avgör hur många poäng var och en får. Potten delas lika och avrundas nedåt till hela poäng.
                 </p>
                 <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#d9e0d5] bg-[#d9e0d5] text-center text-sm sm:grid-cols-4">
                   {[
-                    ["1 rätt", "100 poäng"],
-                    ["2 rätt", "50 poäng var"],
-                    ["3 rätt", "33 poäng var"],
-                    ["4 rätt", "25 poäng var"],
+                    ["1 person tippade rätt", "100 poäng till personen"],
+                    ["2 personer tippade rätt", "50 poäng per person"],
+                    ["3 personer tippade rätt", "33 poäng per person"],
+                    ["4 personer tippade rätt", "25 poäng per person"],
                   ].map(([label, points]) => (
                     <div className="bg-[#fbfcf8] px-3 py-3" key={label}>
                       <p className="font-bold text-[#24362c]">{label}</p>

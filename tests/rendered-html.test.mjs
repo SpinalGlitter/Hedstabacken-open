@@ -50,6 +50,8 @@ test("server-renders the betting app shell", async () => {
   assert.match(html, /aria-label="Premier League-tabell"/);
   assert.match(html, /Regler för Hedstabacken Open/);
   assert.match(html, /Varje match låses separat vid avspark/);
+  assert.match(html, /2 personer tippade rätt/);
+  assert.match(html, /50 poäng per person/);
   assert.match(html, /För att kunna vinna en omgång behöver du ha tippat samtliga matcher/);
   assert.match(html, /Övriga deltagares tips blir synliga när respektive match har startat/);
   assert.match(html, /100 poäng/);
