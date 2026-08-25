@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { processRoundNotifications } from "../lib/round-notifications";
+import { processRoundReminders } from "../lib/round-reminders";
 
 interface Env extends Cloudflare.Env {
   ASSETS: Fetcher;
@@ -51,6 +52,7 @@ const worker = {
     ctx.waitUntil(
       (async () => {
         await handler.fetch(new Request("https://hedstabacken.internal/api/fixtures"), env, ctx);
+        await processRoundReminders(env);
         await processRoundNotifications(env);
       })(),
     );

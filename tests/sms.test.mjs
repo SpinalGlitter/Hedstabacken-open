@@ -4,6 +4,7 @@ import test from "node:test";
 import { estimateSmsParts, normalizeSwedishMobile } from "../lib/sms.ts";
 import { validateCustomSms } from "../lib/custom-sms-input.ts";
 import { buildRoundSms } from "../lib/sms-summary.ts";
+import { buildRoundReminderSms, isRoundReminderDue } from "../lib/reminder-sms.ts";
 
 test("normalizes Swedish mobile numbers to E.164", () => {
   assert.equal(normalizeSwedishMobile("070-123 45 67"), "+46701234567");
@@ -87,4 +88,23 @@ test("keeps shared-winner summaries within one SMS part", () => {
 
   assert.match(message, /3 delade vinnare/);
   assert.ok(message.length <= 160);
+});
+
+test("sends a round reminder in the hour before the first kickoff", () => {
+  const kickoff = "2026-08-29T14:00:00.000Z";
+
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:00:00.000Z")), true);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:10:00.000Z")), true);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:59:59.000Z")), false);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:15:00.000Z")), false);
+  assert.equal(isRoundReminderDue("invalid", Date.parse("2026-08-29T13:00:00.000Z")), false);
+});
+
+test("builds a concise round reminder with the site link", () => {
+  const message = buildRoundReminderSms(3, "https://hedstabacken-open.jompen.chatgpt.site/");
+
+  assert.match(message, /Omgång 3 börjar om ungefär en timme/);
+  assert.match(message, /Kom ihåg att lämna in dina tips/);
+  assert.match(message, /https:\/\/hedstabacken-open\.jompen\.chatgpt\.site$/);
+  assert.equal(estimateSmsParts(message), 1);
 });

@@ -150,6 +150,54 @@ export const smsDeliveries = sqliteTable(
   ],
 );
 
+export const roundReminders = sqliteTable(
+  "round_reminders",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    seasonId: integer("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    matchday: integer("matchday").notNull(),
+    firstKickoff: text("first_kickoff").notNull(),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["pending", "processing", "sent"] })
+      .notNull()
+      .default("pending"),
+    sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [uniqueIndex("round_reminders_season_matchday_idx").on(table.seasonId, table.matchday)],
+);
+
+export const roundReminderDeliveries = sqliteTable(
+  "round_reminder_deliveries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    reminderId: integer("reminder_id")
+      .notNull()
+      .references(() => roundReminders.id, { onDelete: "cascade" }),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    phoneNumber: text("phone_number").notNull(),
+    status: text("status", { enum: ["pending", "sent", "failed"] })
+      .notNull()
+      .default("pending"),
+    providerMessageId: text("provider_message_id"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("round_reminder_deliveries_reminder_member_idx").on(table.reminderId, table.memberId),
+    index("round_reminder_deliveries_reminder_idx").on(table.reminderId),
+  ],
+);
+
 export const customSmsMessages = sqliteTable(
   "custom_sms_messages",
   {

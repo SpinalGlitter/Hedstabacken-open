@@ -17,10 +17,11 @@ Familjeapp för tippning av Premier League med 1, X och 2.
 - Varje match har en pott på 100 poäng som delas mellan dem som tippat rätt.
 - Den som tar flest matchpoäng i en färdigspelad omgång vinner en bonuspott på 50 poäng. Vid delad seger delas potten och avrundas nedåt.
 - Admin kan aktivera automatiska SMS med omgångsvinnare, flest rätt och totalledare.
+- En SMS-påminnelse med länk till appen skickas ungefär en timme före första matchen i varje omgång.
 - Databasschema för användare, säsonger, matcher, tips och manuella korrigeringar.
 - Hela Premier League-säsongen 2026/27 hämtas från `football-data.org` och sparas i D1.
 
-Startsidan visar det riktiga spelschemat. Resultaten kontrolleras varje timme och även när någon öppnar appen om den senaste synkningen är äldre än femton minuter.
+Startsidan visar det riktiga spelschemat. Det schemalagda jobbet kontrollerar påminnelser var femte minut. Resultaten synkas högst en gång per femton minuter och även när någon öppnar appen om den senaste synkningen är äldre än femton minuter.
 
 ## football-data.org
 

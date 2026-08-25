@@ -4,6 +4,7 @@ import {
   winnerToPick,
 } from "@/lib/football-data";
 import { processRoundNotifications } from "@/lib/round-notifications";
+import { processRoundReminders } from "@/lib/round-reminders";
 
 const SEASON_START_YEAR = 2026;
 const SEASON_LABEL = "2026/27";
@@ -175,7 +176,10 @@ export async function GET() {
   }
 
   if (didSync) {
-    await processRoundNotifications(runtimeEnv).catch(() => undefined);
+    await Promise.all([
+      processRoundReminders(runtimeEnv).catch(() => undefined),
+      processRoundNotifications(runtimeEnv).catch(() => undefined),
+    ]);
   }
 
   return Response.json(

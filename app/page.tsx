@@ -692,7 +692,7 @@ export default function Home() {
   }
 
   async function runSmsCheck() {
-    setSmsMessage("Kontrollerar färdigspelade omgångar...");
+    setSmsMessage("Kontrollerar påminnelser och färdigspelade omgångar...");
 
     try {
       const response = await fetch("/api/notifications", {
@@ -701,20 +701,19 @@ export default function Home() {
         body: JSON.stringify({ action: "run" }),
       });
       const data = (await response.json()) as {
-        rounds?: number;
-        sent?: number;
-        failed?: number;
+        reminders?: { reminders?: number; sent?: number; failed?: number };
+        summaries?: { rounds?: number; sent?: number; failed?: number };
         error?: string;
       };
       if (!response.ok) {
         throw new Error(data.error ?? "Omgångarna kunde inte kontrolleras.");
       }
 
-      setSmsMessage(
-        data.rounds
-          ? `${data.sent ?? 0} SMS skickades${data.failed ? `, ${data.failed} misslyckades` : ""}.`
-          : "Det finns ingen ny färdigspelad omgång att skicka.",
-      );
+      const sent = (data.reminders?.sent ?? 0) + (data.summaries?.sent ?? 0);
+      const failed = (data.reminders?.failed ?? 0) + (data.summaries?.failed ?? 0);
+      setSmsMessage(sent || failed
+        ? `${sent} SMS skickades${failed ? `, ${failed} misslyckades` : ""}.`
+        : "Det finns ingen påminnelse eller ny färdigspelad omgång att skicka just nu.");
     } catch (error) {
       setSmsMessage(error instanceof Error ? error.message : "Omgångarna kunde inte kontrolleras.");
     }
@@ -1442,9 +1441,10 @@ export default function Home() {
                 <div className="border-t border-[#e5eadf] pt-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h3 className="font-bold text-[#24362c]">SMS efter omgången</h3>
+                      <h3 className="font-bold text-[#24362c]">Automatiska SMS</h3>
                       <p className="mt-1 text-xs leading-5 text-[#66736b]">
-                        Nummer sparas i svenskt format. Aktivera bara SMS för deltagare som vill få utskicken.
+                        En påminnelse skickas ungefär en timme före omgången och en sammanfattning när den är klar.
+                        Aktivera bara SMS för deltagare som vill få utskicken.
                       </p>
                     </div>
                     <button

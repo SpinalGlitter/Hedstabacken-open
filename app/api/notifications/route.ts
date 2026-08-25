@@ -1,4 +1,5 @@
 import { processRoundNotifications, sendTestSms } from "@/lib/round-notifications";
+import { processRoundReminders } from "@/lib/round-reminders";
 import { getDatabase, requireAdmin } from "@/lib/server-auth";
 import { smsConfiguration } from "@/lib/sms";
 
@@ -53,7 +54,11 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "run") {
-      return Response.json(await processRoundNotifications(env));
+      const [reminders, summaries] = await Promise.all([
+        processRoundReminders(env),
+        processRoundNotifications(env),
+      ]);
+      return Response.json({ reminders, summaries });
     }
 
     return Response.json({ error: "Ogiltig SMS-åtgärd." }, { status: 400 });
