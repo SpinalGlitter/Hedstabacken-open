@@ -1,0 +1,30 @@
+name: Scheduled notifications
+
+on:
+  schedule:
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-notifications
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refresh fixtures
+        run: curl --fail --silent --show-error --retry 3 "https://hedstabacken-open.jompen.chatgpt.site/api/fixtures?scheduled=${GITHUB_RUN_ID}"
+
+      - name: Check reminders and summaries
+        env:
+          CRON_SECRET: ${{ secrets.SCHEDULED_JOB_SECRET }}
+        run: |
+          curl --fail --silent --show-error --retry 3 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://hedstabacken-open.jompen.chatgpt.site/api/cron

@@ -6,5 +6,6 @@ declare namespace Cloudflare {
     ELKS_API_PASSWORD?: string;
     ELKS_SMS_FROM?: string;
     APP_PUBLIC_URL?: string;
+    CRON_SECRET?: string;
   }
 }

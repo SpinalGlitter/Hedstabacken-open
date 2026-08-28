@@ -95,9 +95,20 @@ test("sends a round reminder in the hour before the first kickoff", () => {
 
   assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:00:00.000Z")), true);
   assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:10:00.000Z")), true);
-  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:59:59.000Z")), false);
-  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:15:00.000Z")), false);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:55:00.000Z")), true);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:54:59.000Z")), false);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:40:00.000Z")), false);
   assert.equal(isRoundReminderDue("invalid", Date.parse("2026-08-29T13:00:00.000Z")), false);
+});
+
+test("keeps the scheduled notification endpoint secret-protected", async () => {
+  const route = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../app/api/cron/route.ts", import.meta.url), "utf8"),
+  );
+
+  assert.match(route, /env\.CRON_SECRET/);
+  assert.match(route, /authorization !== `Bearer \$\{secret\}`/);
+  assert.match(route, /status: 401/);
 });
 
 test("builds a concise round reminder with the site link", () => {

@@ -52,6 +52,7 @@ ELKS_API_USERNAME=ditt_api_användarnamn
 ELKS_API_PASSWORD=ditt_api_lösenord
 ELKS_SMS_FROM=HedstaOpen
 APP_PUBLIC_URL=https://hedstabacken-open.jompen.chatgpt.site
+CRON_SECRET=ett_långt_slumpmässigt_värde
 ```
 
 ## Nästa steg

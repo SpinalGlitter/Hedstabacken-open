@@ -1,5 +1,5 @@
-const REMINDER_WINDOW_MS = 60 * 60 * 1000;
-const REMINDER_WINDOW_END_MS = 45 * 60 * 1000;
+const REMINDER_WINDOW_MS = 65 * 60 * 1000;
+const REMINDER_WINDOW_END_MS = 20 * 60 * 1000;
 
 export function isRoundReminderDue(firstKickoff: string, now = Date.now()) {
   const kickoff = Date.parse(firstKickoff);
