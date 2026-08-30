@@ -1,5 +1,6 @@
 import {
   fetchPremierLeagueMatches,
+  mergeStoredFixtureResult,
   normalizeMatchStatus,
   winnerToPick,
 } from "@/lib/football-data";
@@ -79,14 +80,33 @@ function shouldSync(fixtures: FixtureRow[]) {
   return !Number.isFinite(lastSyncedAt) || Date.now() - lastSyncedAt >= SYNC_INTERVAL_MS;
 }
 
-async function syncFixtures(db: D1Database, seasonId: number, token: string) {
+async function syncFixtures(db: D1Database, seasonId: number, token: string, existingFixtures: FixtureRow[]) {
   const response = await fetchPremierLeagueMatches(SEASON_START_YEAR, token);
   const syncedAt = new Date().toISOString();
   const matches = response.matches.filter((match) => match.matchday !== null);
+  const existingById = new Map(existingFixtures.map((fixture) => [fixture.football_data_id, fixture]));
 
   for (let index = 0; index < matches.length; index += 50) {
-    const batch = matches.slice(index, index + 50).map((match) =>
-      db
+    const batch = matches.slice(index, index + 50).map((match) => {
+      const existing = existingById.get(match.id);
+      const result = mergeStoredFixtureResult(
+        existing
+          ? {
+              status: existing.status,
+              homeScore: existing.home_score,
+              awayScore: existing.away_score,
+              winner: existing.winner,
+            }
+          : undefined,
+        {
+          status: normalizeMatchStatus(match.status),
+          homeScore: match.score.fullTime.home,
+          awayScore: match.score.fullTime.away,
+          winner: match.score.winner,
+        },
+      );
+
+      return db
         .prepare(
           `INSERT INTO fixtures (
             football_data_id, season_id, matchday, utc_date, home_team, away_team,
@@ -111,13 +131,13 @@ async function syncFixtures(db: D1Database, seasonId: number, token: string) {
           match.utcDate,
           match.homeTeam.name,
           match.awayTeam.name,
-          normalizeMatchStatus(match.status),
-          match.score.fullTime.home,
-          match.score.fullTime.away,
-          match.score.winner,
+          result.status,
+          result.homeScore,
+          result.awayScore,
+          result.winner,
           syncedAt,
-        ),
-    );
+        );
+    });
 
     await db.batch(batch);
   }
@@ -162,7 +182,7 @@ export async function GET() {
 
   if (shouldSync(fixtures)) {
     try {
-      await syncFixtures(runtimeEnv.DB, seasonId, runtimeEnv.FOOTBALL_DATA_API_TOKEN);
+      await syncFixtures(runtimeEnv.DB, seasonId, runtimeEnv.FOOTBALL_DATA_API_TOKEN, fixtures);
       fixtures = await readFixtures(runtimeEnv.DB, seasonId);
       didSync = true;
     } catch (error) {

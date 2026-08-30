@@ -1,7 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { totalStandingTable } from "../lib/football-data.ts";
+import { mergeStoredFixtureResult, totalStandingTable } from "../lib/football-data.ts";
+
+test("does not erase a finished result when the API regresses to scheduled", () => {
+  const finished = {
+    status: "FINISHED",
+    homeScore: 2,
+    awayScore: 2,
+    winner: "DRAW",
+  };
+
+  assert.deepEqual(
+    mergeStoredFixtureResult(finished, {
+      status: "SCHEDULED",
+      homeScore: null,
+      awayScore: null,
+      winner: null,
+    }),
+    finished,
+  );
+});
+
+test("accepts a corrected finished result", () => {
+  assert.deepEqual(
+    mergeStoredFixtureResult(
+      { status: "FINISHED", homeScore: 2, awayScore: 2, winner: "DRAW" },
+      { status: "FINISHED", homeScore: 2, awayScore: 1, winner: "HOME_TEAM" },
+    ),
+    { status: "FINISHED", homeScore: 2, awayScore: 1, winner: "HOME_TEAM" },
+  );
+});
 
 test("selects the total Premier League table instead of home or away standings", () => {
   const totalTable = [

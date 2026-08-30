@@ -73,6 +73,13 @@ export type StoredMatchStatus =
   | "SUSPENDED"
   | "CANCELLED";
 
+export type StoredFixtureResult = {
+  status: StoredMatchStatus;
+  homeScore: number | null;
+  awayScore: number | null;
+  winner: FootballDataWinner;
+};
+
 export function normalizeMatchStatus(status: FootballDataMatch["status"]): StoredMatchStatus {
   if (status === "TIMED") {
     return "SCHEDULED";
@@ -83,6 +90,17 @@ export function normalizeMatchStatus(status: FootballDataMatch["status"]): Store
   }
 
   return status;
+}
+
+export function mergeStoredFixtureResult(
+  existing: StoredFixtureResult | undefined,
+  incoming: StoredFixtureResult,
+): StoredFixtureResult {
+  if (existing?.status === "FINISHED" && incoming.status !== "FINISHED") {
+    return existing;
+  }
+
+  return incoming;
 }
 
 export function winnerToPick(winner: FootballDataWinner): PredictionPick | null {
