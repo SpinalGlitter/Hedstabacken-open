@@ -1,7 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { calculateCompetition, type ScoringPredictionBook } from "@/lib/scoring";
+import {
+  calculateCompetition,
+  potentialPointsForPrediction,
+  type ScoringPredictionBook,
+} from "@/lib/scoring";
 import { estimateSmsParts } from "@/lib/sms";
 import { submissionProgress } from "@/lib/submission-status";
 import { teamAbbreviation } from "@/lib/teams";
@@ -249,6 +253,64 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (fixtures.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    let kickoffTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function scheduleNextKickoffRefresh() {
+      const now = Date.now();
+      const nextKickoff = fixtures
+        .map((fixture) => Date.parse(fixture.kickoff))
+        .filter((kickoff) => Number.isFinite(kickoff) && kickoff > now)
+        .sort((a, b) => a - b)[0];
+
+      if (nextKickoff === undefined) {
+        return;
+      }
+
+      const delay = Math.min(nextKickoff - now + 1_000, 2_147_000_000);
+      kickoffTimer = setTimeout(async () => {
+        try {
+          const refreshedPredictions = await fetchPredictionBook();
+          if (!cancelled) {
+            setPredictions((current) =>
+              currentMemberId
+                ? {
+                    ...refreshedPredictions,
+                    [currentMemberId]: {
+                      ...refreshedPredictions[currentMemberId],
+                      ...current[currentMemberId],
+                    },
+                  }
+                : refreshedPredictions,
+            );
+            setPredictionLoadError(null);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setPredictionLoadError(error instanceof Error ? error.message : "Tipsen kunde inte uppdateras.");
+          }
+        }
+
+        if (!cancelled) {
+          scheduleNextKickoffRefresh();
+        }
+      }, delay);
+    }
+
+    scheduleNextKickoffRefresh();
+    return () => {
+      cancelled = true;
+      if (kickoffTimer) {
+        clearTimeout(kickoffTimer);
+      }
+    };
+  }, [currentMemberId, fixtures]);
 
   useEffect(() => {
     if (activeView !== "league" || leagueTableLoaded) {
@@ -1114,7 +1176,7 @@ export default function Home() {
           </div>
 
           <div className="min-w-0 overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
-            <div className="hidden grid-cols-[150px_minmax(0,1fr)_88px_120px] gap-3 border-b border-[#e5eadf] bg-[#fbfcf8] px-4 py-3 text-xs font-bold uppercase text-[#66736b] sm:grid">
+            <div className="hidden grid-cols-[150px_minmax(0,1fr)_88px_120px] gap-3 border-b border-[#e5eadf] bg-[#fbfcf8] px-4 py-3 text-xs font-bold uppercase text-[#66736b] sm:grid lg:grid-cols-[150px_minmax(0,1fr)_88px_220px]">
               <span>Avspark</span>
               <span>Match</span>
               <span>Resultat</span>
@@ -1128,10 +1190,13 @@ export default function Home() {
             {roundFixtures.map((fixture) => {
               const locked = isLocked(fixture);
               const currentPrediction = currentMember ? predictions[currentMember.id]?.[fixture.id] : undefined;
+              const potentialPoints = locked && currentMember
+                ? potentialPointsForPrediction(currentMember.id, fixture.id, familyMembers, predictions)
+                : null;
 
               return (
                 <article
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 border-b border-[#edf1e8] px-4 py-4 last:border-b-0 sm:grid-cols-[150px_minmax(0,1fr)_88px_120px] sm:gap-3"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 border-b border-[#edf1e8] px-4 py-4 last:border-b-0 sm:grid-cols-[150px_minmax(0,1fr)_88px_120px] sm:gap-3 lg:grid-cols-[150px_minmax(0,1fr)_88px_220px]"
                   key={fixture.id}
                 >
                   <div className="hidden text-sm text-[#5b6b61] sm:block">
@@ -1156,19 +1221,26 @@ export default function Home() {
                     <span className="text-xs font-bold uppercase text-[#66736b] sm:hidden">Resultat</span>
                     <span>{fixture.score ?? "-"}</span>
                   </div>
-                  <div className="prediction-group" aria-label={`Tips för ${fixture.homeTeam} mot ${fixture.awayTeam}`}>
-                    {predictionOptions.map((option) => (
-                      <button
-                        aria-pressed={currentPrediction === option}
-                        className={`prediction-button ${currentPrediction === option ? "prediction-button-active" : ""}`}
-                        disabled={!currentMember || locked || fixture.status === "POSTPONED"}
-                        key={option}
-                        onClick={() => setPrediction(fixture, option)}
-                        type="button"
-                      >
-                        {option}
-                      </button>
-                    ))}
+                  <div className="prediction-cell">
+                    <div className="prediction-group" aria-label={`Tips för ${fixture.homeTeam} mot ${fixture.awayTeam}`}>
+                      {predictionOptions.map((option) => (
+                        <button
+                          aria-pressed={currentPrediction === option}
+                          className={`prediction-button ${currentPrediction === option ? "prediction-button-active" : ""}`}
+                          disabled={!currentMember || locked || fixture.status === "POSTPONED"}
+                          key={option}
+                          onClick={() => setPrediction(fixture, option)}
+                          type="button"
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                    {potentialPoints !== null ? (
+                      <span className="potential-points" title="Poäng du får om tipset blir rätt">
+                        {potentialPoints} p om rätt
+                      </span>
+                    ) : null}
                   </div>
                 </article>
               );

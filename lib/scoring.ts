@@ -42,6 +42,21 @@ export function pointsForCorrectPick(correctCount: number) {
   return Math.floor(100 / correctCount);
 }
 
+export function potentialPointsForPrediction(
+  memberId: string,
+  fixtureId: number,
+  members: ScoringMember[],
+  predictions: ScoringPredictionBook,
+) {
+  const pick = predictions[memberId]?.[fixtureId];
+  if (!pick) {
+    return null;
+  }
+
+  const matchingPicks = members.filter((member) => predictions[member.id]?.[fixtureId] === pick).length;
+  return pointsForCorrectPick(matchingPicks);
+}
+
 export function calculateCompetition(
   members: ScoringMember[],
   fixtures: ScoringFixture[],

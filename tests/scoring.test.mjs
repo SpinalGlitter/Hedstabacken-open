@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calculateCompetition, pointsForCorrectPick } from "../lib/scoring.ts";
+import {
+  calculateCompetition,
+  pointsForCorrectPick,
+  potentialPointsForPrediction,
+} from "../lib/scoring.ts";
 
 const members = [
   { id: "anna", name: "Anna" },
@@ -20,6 +24,19 @@ test("splits each match's 100 point pool between all correct predictors", () => 
 
 test("returns no points when nobody predicted the correct result", () => {
   assert.equal(pointsForCorrectPick(0), 0);
+});
+
+test("shows the potential match points for a locked prediction", () => {
+  const predictions = {
+    anna: { 1: "X" },
+    erik: { 1: "X" },
+    johan: { 1: "X" },
+    max: { 1: "1" },
+  };
+
+  assert.equal(potentialPointsForPrediction("anna", 1, members, predictions), 33);
+  assert.equal(potentialPointsForPrediction("max", 1, members, predictions), 100);
+  assert.equal(potentialPointsForPrediction("anna", 2, members, predictions), null);
 });
 
 test("totals rarity points for every finished match", () => {
