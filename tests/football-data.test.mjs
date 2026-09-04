@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeStoredFixtureResult, totalStandingTable } from "../lib/football-data.ts";
+import { mergeStoredFixtureResult, normalizeMatchStatus, totalStandingTable } from "../lib/football-data.ts";
+
+test("normalizes provider and malformed match statuses", () => {
+  assert.equal(normalizeMatchStatus("TIMED"), "SCHEDULED");
+  assert.equal(normalizeMatchStatus("AWARDED"), "FINISHED");
+  assert.equal(normalizeMatchStatus("IN_PLAY"), "IN_PLAY");
+  assert.equal(normalizeMatchStatus("2026-09-05 10:30:00Z"), "SCHEDULED");
+});
 
 test("does not erase a finished result when the API regresses to scheduled", () => {
   const finished = {

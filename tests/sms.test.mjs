@@ -90,14 +90,15 @@ test("keeps shared-winner summaries within one SMS part", () => {
   assert.ok(message.length <= 160);
 });
 
-test("sends a round reminder in the hour before the first kickoff", () => {
+test("sends a round reminder around an hour before the first kickoff", () => {
   const kickoff = "2026-08-29T14:00:00.000Z";
 
   assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:00:00.000Z")), true);
   assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:10:00.000Z")), true);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:30:00.000Z")), true);
   assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:55:00.000Z")), true);
-  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:54:59.000Z")), false);
-  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:40:00.000Z")), false);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T12:29:59.000Z")), false);
+  assert.equal(isRoundReminderDue(kickoff, Date.parse("2026-08-29T13:45:00.000Z")), false);
   assert.equal(isRoundReminderDue("invalid", Date.parse("2026-08-29T13:00:00.000Z")), false);
 });
 

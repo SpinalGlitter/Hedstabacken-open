@@ -80,7 +80,18 @@ export type StoredFixtureResult = {
   winner: FootballDataWinner;
 };
 
-export function normalizeMatchStatus(status: FootballDataMatch["status"]): StoredMatchStatus {
+const STORED_MATCH_STATUSES = new Set<StoredMatchStatus>([
+  "SCHEDULED",
+  "LIVE",
+  "IN_PLAY",
+  "PAUSED",
+  "FINISHED",
+  "POSTPONED",
+  "SUSPENDED",
+  "CANCELLED",
+]);
+
+export function normalizeMatchStatus(status: unknown): StoredMatchStatus {
   if (status === "TIMED") {
     return "SCHEDULED";
   }
@@ -89,7 +100,7 @@ export function normalizeMatchStatus(status: FootballDataMatch["status"]): Store
     return "FINISHED";
   }
 
-  return status;
+  return STORED_MATCH_STATUSES.has(status as StoredMatchStatus) ? (status as StoredMatchStatus) : "SCHEDULED";
 }
 
 export function mergeStoredFixtureResult(

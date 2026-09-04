@@ -2,7 +2,8 @@ name: Scheduled notifications
 
 on:
   schedule:
-    - cron: "3/5 * * * *"
+    # Two focused checks per hour are less likely to be throttled than a five-minute schedule.
+    - cron: "7,37 9-21 * * *"
   workflow_dispatch:
 
 permissions:

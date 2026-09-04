@@ -4,6 +4,14 @@ export function fixtureHasStarted(fixture: { status: string; utc_date: string },
   return ["LIVE", "IN_PLAY", "PAUSED", "FINISHED"].includes(fixture.status) || Date.parse(fixture.utc_date) <= now;
 }
 
+export function fixtureAcceptsPredictions(fixture: { status: string; utc_date: string }, now = Date.now()) {
+  if (fixtureHasStarted(fixture, now)) {
+    return false;
+  }
+
+  return !["POSTPONED", "SUSPENDED", "CANCELLED"].includes(fixture.status);
+}
+
 export function shouldRevealPrediction(
   predictionOwnerId: string,
   signedInMemberId: string | null,

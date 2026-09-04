@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  fixtureAcceptsPredictions,
   fixtureHasStarted,
   normalizePredictionSubmission,
   shouldRevealPrediction,
@@ -26,6 +27,16 @@ test("reveals everyone’s picks once the match has started", () => {
     fixtureHasStarted({ status: "SCHEDULED", utc_date: "2026-08-21T19:00:00Z" }, now),
     true,
   );
+});
+
+test("accepts picks for future matches even if a status value is malformed", () => {
+  const futureKickoff = "2026-08-22T20:00:00Z";
+
+  assert.equal(fixtureAcceptsPredictions({ status: "SCHEDULED", utc_date: futureKickoff }, now), true);
+  assert.equal(fixtureAcceptsPredictions({ status: "2026-08-22 19:00:00Z", utc_date: futureKickoff }, now), true);
+  assert.equal(fixtureAcceptsPredictions({ status: "SCHEDULED", utc_date: "2026-08-21T19:00:00Z" }, now), false);
+  assert.equal(fixtureAcceptsPredictions({ status: "POSTPONED", utc_date: futureKickoff }, now), false);
+  assert.equal(fixtureAcceptsPredictions({ status: "CANCELLED", utc_date: futureKickoff }, now), false);
 });
 
 test("validates and deduplicates a saved prediction row", () => {

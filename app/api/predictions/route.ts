@@ -1,5 +1,5 @@
 import { currentMember, getDatabase } from "@/lib/server-auth";
-import { fixtureHasStarted, normalizePredictionSubmission, shouldRevealPrediction } from "@/lib/predictions";
+import { fixtureAcceptsPredictions, normalizePredictionSubmission, shouldRevealPrediction } from "@/lib/predictions";
 
 type PredictionRow = {
   member_id: number;
@@ -85,11 +85,12 @@ export async function POST(request: Request) {
       return Response.json({ error: "En eller flera matcher kunde inte hittas." }, { status: 400 });
     }
 
-    if (fixtureResult.results.some((fixture) => fixture.status !== "SCHEDULED" || fixtureHasStarted(fixture))) {
+    const openFixtures = fixtureResult.results.filter((fixture) => fixtureAcceptsPredictions(fixture));
+    if (openFixtures.length === 0) {
       return Response.json({ error: "Ett tips kunde inte sparas eftersom matchen har låsts." }, { status: 409 });
     }
 
-    const statements = fixtureResult.results.map((fixture) =>
+    const statements = openFixtures.map((fixture) =>
       db
         .prepare(
           `INSERT INTO predictions (member_id, fixture_id, pick)
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
     );
     await db.batch(statements);
 
-    return Response.json({ saved: statements.length });
+    return Response.json({ saved: statements.length, skippedLocked: fixtureResult.results.length - openFixtures.length });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Tipsen kunde inte sparas.";
     return Response.json({ error: message }, { status: 400 });
