@@ -19,7 +19,7 @@ test("classifies saved round progress without exposing any picks", () => {
   assert.equal(submissionProgress(0, 0), "empty");
 });
 
-test("keeps submission counts admin-only and never selects prediction picks", async () => {
+test("shows submission counts to signed-in members without exposing prediction picks", async () => {
   const [page, route] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/submission-status/route.ts", import.meta.url), "utf8"),
@@ -27,6 +27,8 @@ test("keeps submission counts admin-only and never selects prediction picks", as
 
   assert.match(page, /Inlämnade tips/);
   assert.match(page, /api\/submission-status/);
-  assert.match(route, /requireAdmin\(db, request\)/);
+  assert.match(route, /currentMember\(db, request\)/);
+  assert.match(route, /Logga in för att se inlämningsstatus/);
+  assert.doesNotMatch(route, /requireAdmin/);
   assert.doesNotMatch(route, /predictions\.pick/);
 });

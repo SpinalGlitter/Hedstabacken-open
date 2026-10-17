@@ -2,8 +2,8 @@ name: Scheduled notifications
 
 on:
   schedule:
-    # Two focused checks per hour are less likely to be throttled than a five-minute schedule.
-    - cron: "7,37 9-21 * * *"
+    # Hourly fallback. The linked Sites schedule is the primary trigger.
+    - cron: "17 9-22 * * *"
   workflow_dispatch:
 
 permissions:

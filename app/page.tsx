@@ -353,7 +353,7 @@ export default function Home() {
   }, [activeView, leagueTableLoaded]);
 
   useEffect(() => {
-    if (currentMember?.role !== "admin") {
+    if (!currentMember) {
       return;
     }
 
@@ -393,7 +393,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [currentMember?.role, selectedMatchday, submissionStatusRefresh]);
+  }, [currentMember, selectedMatchday, submissionStatusRefresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -939,9 +939,7 @@ export default function Home() {
         kind: "saved",
         message: `${data.saved ?? roundPredictions.length} tips för ${currentMember.name} är sparade. Du kan ändra dem fram till respektive matchstart.`,
       });
-      if (currentMember.role === "admin") {
-        setSubmissionStatusRefresh((value) => value + 1);
-      }
+      setSubmissionStatusRefresh((value) => value + 1);
     } catch (error) {
       setSaveNotice({
         kind: "error",
@@ -1384,7 +1382,7 @@ export default function Home() {
             </ol>
           </section>
 
-          {currentMember?.role === "admin" ? (
+          {currentMember ? (
             <section className="rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
               <div className="flex items-center justify-between gap-3 border-b border-[#e5eadf] px-4 py-3">
                 <div>

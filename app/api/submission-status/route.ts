@@ -1,4 +1,4 @@
-import { getDatabase, requireAdmin } from "@/lib/server-auth";
+import { currentMember, getDatabase } from "@/lib/server-auth";
 import { parseMatchday } from "@/lib/submission-status";
 
 const SEASON_START_YEAR = 2026;
@@ -12,7 +12,10 @@ type SubmissionRow = {
 export async function GET(request: Request) {
   try {
     const db = await getDatabase();
-    await requireAdmin(db, request);
+    const signedInMember = await currentMember(db, request);
+    if (!signedInMember) {
+      return Response.json({ error: "Logga in för att se inlämningsstatus." }, { status: 401 });
+    }
     const matchday = parseMatchday(new URL(request.url).searchParams.get("matchday"));
 
     const [fixtureCount, submissions] = await Promise.all([
@@ -60,10 +63,6 @@ export async function GET(request: Request) {
       },
     );
   } catch (error) {
-    if (error instanceof Error && error.message === "ADMIN_REQUIRED") {
-      return Response.json({ error: "Endast administratören kan se inlämningsstatus." }, { status: 403 });
-    }
-
     if (error instanceof Error && /Omgången/.test(error.message)) {
       return Response.json({ error: error.message }, { status: 400 });
     }

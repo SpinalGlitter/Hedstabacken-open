@@ -112,6 +112,16 @@ test("keeps the scheduled notification endpoint secret-protected", async () => {
   assert.match(route, /status: 401/);
 });
 
+test("checks idempotent SMS jobs whenever fixtures are requested", async () => {
+  const route = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../app/api/fixtures/route.ts", import.meta.url), "utf8"),
+  );
+
+  assert.match(route, /processRoundReminders\(runtimeEnv\)/);
+  assert.match(route, /processRoundNotifications\(runtimeEnv\)/);
+  assert.doesNotMatch(route, /if \(didSync\)/);
+});
+
 test("builds a concise round reminder with the site link", () => {
   const message = buildRoundReminderSms(3, "https://hedstabacken-open.jompen.chatgpt.site/");
 
