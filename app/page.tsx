@@ -185,6 +185,7 @@ export default function Home() {
   const [seasonLabel, setSeasonLabel] = useState("2026/27");
   const [syncMessage, setSyncMessage] = useState("Hämtar matcher...");
   const [selectedMatchday, setSelectedMatchday] = useState(1);
+  const [standingsMatchday, setStandingsMatchday] = useState<number | null>(null);
   const [predictions, setPredictions] = useState<ScoringPredictionBook>({});
   const [predictionLoadError, setPredictionLoadError] = useState<string | null>(null);
   const [saveNotices, setSaveNotices] = useState<Record<number, SaveNotice>>({});
@@ -560,6 +561,21 @@ export default function Home() {
     () => calculateCompetition(familyMembers, fixtures, predictions),
     [familyMembers, fixtures, predictions],
   );
+
+  const standingsFixtures = useMemo(
+    () => standingsMatchday === null ? fixtures : fixtures.filter((fixture) => fixture.matchday === standingsMatchday),
+    [fixtures, standingsMatchday],
+  );
+  const displayedStandings = useMemo(
+    () => standingsMatchday === null
+      ? competition.standings
+      : calculateCompetition(familyMembers, standingsFixtures, predictions).standings,
+    [standingsMatchday, competition, familyMembers, standingsFixtures, predictions],
+  );
+  const finishedStandingsMatches = standingsFixtures.filter(
+    (fixture) => fixture.status === "FINISHED" && fixture.result !== undefined,
+  ).length;
+  const standingsLabel = standingsMatchday === null ? "Totalställning" : `Omgång ${standingsMatchday}`;
 
   function setSaveNotice(notice: SaveNotice, matchday = selectedMatchday) {
     setSaveNotices((current) => ({ ...current, [matchday]: notice }));
@@ -1708,13 +1724,37 @@ export default function Home() {
         <div className={activeView === "standings" ? "min-w-0 space-y-4 sm:space-y-5 lg:col-span-2" : "hidden"}>
           <section className="overflow-hidden rounded-lg border border-[#d9e0d5] bg-white shadow-sm">
             <div className="border-b border-[#e5eadf] px-4 py-3">
-              <h2 className="text-lg font-bold">Poängtabell</h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-lg font-bold">Poängtabell</h2>
+                <div className="w-full sm:w-52">
+                  <label className="field-label" htmlFor="standings-matchday">Visa poäng för</label>
+                  <select
+                    className="field-input mt-1 w-full"
+                    id="standings-matchday"
+                    value={standingsMatchday ?? "total"}
+                    onChange={(event) => setStandingsMatchday(event.target.value === "total" ? null : Number(event.target.value))}
+                  >
+                    <option value="total">Totalt</option>
+                    {matchdays.map((matchday) => (
+                      <option key={matchday} value={matchday}>Omgång {matchday}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <p className="mt-1 text-sm leading-6 text-[#5b6b61]">
                 Varje match har en pott på 100 poäng som delas mellan dem som tippat rätt. Omgångens 50 bonuspoäng delas mellan dem som tagit flest matchpoäng i omgången.
               </p>
+              <p aria-live="polite" className="mt-2 text-sm font-semibold text-[#365246]">
+                {standingsLabel}
+                {standingsMatchday !== null ? (
+                  finishedStandingsMatches === standingsFixtures.length && standingsFixtures.length > 0
+                    ? " · Slutställning"
+                    : ` · Preliminärt: ${finishedStandingsMatches}/${standingsFixtures.length} matchresultat. Bonus tillkommer när omgången är klar.`
+                ) : null}
+              </p>
             </div>
             <div className="sm:hidden">
-              <table aria-label="Kompakt totalställning" className="w-full table-fixed border-collapse text-sm">
+              <table aria-label={`Kompakt poängtabell: ${standingsLabel}`} className="w-full table-fixed border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-[11px] font-bold uppercase text-[#66736b]">
                     <th className="w-9 px-2 py-3 text-center">#</th>
@@ -1723,7 +1763,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {competition.standings.map((member, index) => (
+                  {displayedStandings.map((member, index) => (
                     <tr className="border-t border-[#edf1e8]" key={member.memberId}>
                       <td className="px-2 py-3 text-center font-bold">{index + 1}</td>
                       <td className="min-w-0 px-2 py-3">
@@ -1731,6 +1771,7 @@ export default function Home() {
                         <p className="mt-0.5 text-xs text-[#66736b]">
                           {member.correct} rätt · {member.roundBonus} bonus
                         </p>
+                        <p className="text-xs text-[#66736b]">{member.matchPoints} matchpoäng</p>
                       </td>
                       <td className="px-2 py-3 text-center text-base font-bold text-[#1d513d]">{member.total}</td>
                     </tr>
@@ -1740,7 +1781,7 @@ export default function Home() {
             </div>
 
             <div className="mobile-table-scroll hidden sm:block">
-              <table className="w-full border-collapse text-sm">
+              <table aria-label={`Poängtabell: ${standingsLabel}`} className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-[#fbfcf8] text-left text-xs uppercase text-[#66736b]">
                     <th className="px-4 py-3">Placering</th>
@@ -1752,7 +1793,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {competition.standings.map((member, index) => (
+                  {displayedStandings.map((member, index) => (
                     <tr className="border-t border-[#edf1e8]" key={member.memberId}>
                       <td className="px-4 py-3 font-bold">{index + 1}</td>
                       <td className="px-4 py-3 font-bold">{member.name}</td>
